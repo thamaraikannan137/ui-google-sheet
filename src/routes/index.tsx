@@ -1,0 +1,48 @@
+import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { MainLayout } from "../components/layout";
+import { HomePage } from "../pages/HomePage";
+import { AboutPage } from "../pages/AboutPage";
+import { LoginPage } from "../pages/LoginPage";
+import { RegisterPage } from "../pages/RegisterPage";
+import { ExpensesPage } from "../pages/ExpensesPage";
+import { GoogleAuthCallbackPage } from "../pages/GoogleAuthCallbackPage";
+
+
+const router = createBrowserRouter([
+  {
+    // Routes with MainLayout
+    path: "/",
+    element: <MainLayout />,
+    children: [
+      {
+        index: true,
+        element: <HomePage />,
+      },
+      {
+        path: "about",
+        element: <AboutPage />,
+      },
+      {
+        path: "expenses",
+        element: <ExpensesPage />,
+      }
+    ],
+  },
+  {
+    // Routes without layout (standalone pages)
+    path: "/login",
+    element: <LoginPage />,
+  },
+  {
+    path: "/register",
+    element: <RegisterPage />,
+  },
+  {
+    path: "/auth/google/callback",
+    element: <GoogleAuthCallbackPage />,
+  },
+]);
+
+export const AppRouter = () => {
+  return <RouterProvider router={router} />;
+};
