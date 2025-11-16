@@ -26,8 +26,9 @@ export const fetchExpenses = createAsyncThunk(
     try {
       const expenses = await expenseService.getExpenses();
       return expenses;
-    } catch (error: any) {
-      return rejectWithValue(error.message || 'Failed to fetch expenses');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch expenses';
+      return rejectWithValue(errorMessage);
     }
   }
 );
@@ -40,8 +41,9 @@ export const createExpense = createAsyncThunk(
       // Refetch expenses to get updated list with row numbers
       const expenses = await expenseService.getExpenses();
       return expenses;
-    } catch (error: any) {
-      return rejectWithValue(error.message || 'Failed to create expense');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create expense';
+      return rejectWithValue(errorMessage);
     }
   }
 );
@@ -57,8 +59,9 @@ export const updateExpense = createAsyncThunk(
       // Refetch expenses to get updated data
       const expenses = await expenseService.getExpenses();
       return expenses;
-    } catch (error: any) {
-      return rejectWithValue(error.message || 'Failed to update expense');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update expense';
+      return rejectWithValue(errorMessage);
     }
   }
 );
@@ -71,8 +74,9 @@ export const deleteExpense = createAsyncThunk(
       // Refetch expenses to get updated list
       const expenses = await expenseService.getExpenses();
       return expenses;
-    } catch (error: any) {
-      return rejectWithValue(error.message || 'Failed to delete expense');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to delete expense';
+      return rejectWithValue(errorMessage);
     }
   }
 );

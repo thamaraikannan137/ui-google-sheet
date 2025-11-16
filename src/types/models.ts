@@ -57,20 +57,21 @@ export interface ExpenseFormData {
   notes?: string;
 }
 
-// Google Auth response
+// Google Auth response (backend returns JWT after OAuth)
 export interface GoogleAuthResponse {
-  message: string;
-  email?: string;
-  sessionId: string;
-  nextStep?: string;
-  usage?: string;
+  token: string;
+  user: {
+    email: string;
+    name?: string;
+    picture?: string;
+  };
 }
 
 // Auth status response
 export interface AuthStatusResponse {
   authenticated: boolean;
   email?: string;
-  spreadsheetConnected: boolean;
+  spreadsheetConnected?: boolean;
   spreadsheetId?: string | null;
   sessionId?: string;
   message?: string;

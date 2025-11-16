@@ -38,13 +38,10 @@ export const LoginPage = () => {
     const checkAuth = async () => {
       try {
         const status = await authService.checkAuthStatus();
-        if (status.authenticated && status.spreadsheetConnected) {
-          navigate('/expenses');
-        } else if (status.authenticated) {
-          // Authenticated but spreadsheet not connected
+        if (status.authenticated) {
           navigate('/expenses');
         }
-      } catch (error) {
+      } catch {
         // Not authenticated, stay on login page
       }
     };
@@ -56,11 +53,19 @@ export const LoginPage = () => {
   };
 
   return (
-    <Box className='flex min-h-screen'>
+    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+      {/* Left Side - Image */}
       <Box
-        className='flex items-center justify-center flex-1 min-h-screen relative p-6 hidden md:flex'
         sx={{
-          borderRight: theme => theme.palette.divider
+          display: { xs: 'none', md: 'flex' },
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '100vh',
+          position: 'relative',
+          p: 3,
+          borderRight: `1px solid ${theme.palette.divider}`,
+          backgroundColor: theme.palette.background.default,
         }}
       >
         <LoginIllustration
@@ -69,16 +74,40 @@ export const LoginPage = () => {
           className={theme.direction === 'rtl' ? 'scale-x-[-1]' : ''}
         />
       </Box>
-      <Box className='flex justify-center items-center min-h-screen bg-background-paper w-full p-6 md:w-[480px]'>
-        <Box className='absolute top-6 left-6'>
-          <Typography variant='h4' color='primary'>LOGO</Typography>
+
+      {/* Right Side - Login Form */}
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: '100vh',
+          width: { xs: '100%', md: '50%' },
+          p: { xs: 3, md: 6 },
+          position: 'relative',
+          backgroundColor: theme.palette.background.paper,
+        }}
+      >
+        {/* Logo */}
+        <Box sx={{ position: 'absolute', top: 24, left: 24 }}>
+          <Typography variant='h4' color='primary' sx={{ fontWeight: 600 }}>
+            LOGO
+          </Typography>
         </Box>
-        <Box className='w-full max-w-[400px] mt-11 md:mt-0'>
-          <Box className='mb-6'>
-            <Typography variant='h4'>Welcome! 👋🏻</Typography>
-            <Typography>Sign in with Google to manage your expenses</Typography>
+
+        {/* Login Content */}
+        <Box sx={{ width: '100%', maxWidth: 400 }}>
+          <Box sx={{ mb: 4, textAlign: { xs: 'center', md: 'left' } }}>
+            <Typography variant='h4' sx={{ mb: 1, fontWeight: 600 }}>
+              Welcome! 👋🏻
+            </Typography>
+            <Typography variant='body1' color='text.secondary'>
+              Sign in with Google to manage your expenses
+            </Typography>
           </Box>
-          <Box className='flex flex-col gap-5'>
+
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             <Button
               fullWidth
               variant='contained'
@@ -94,11 +123,13 @@ export const LoginPage = () => {
                 textTransform: 'none',
                 fontSize: '1rem',
                 fontWeight: 500,
+                borderRadius: 2,
               }}
             >
               Continue with Google
             </Button>
-            <Box className='mt-4'>
+
+            <Box sx={{ mt: 2 }}>
               <Typography variant='body2' color='text.secondary' align='center'>
                 By continuing, you agree to connect your Google account to access your expense sheets.
               </Typography>

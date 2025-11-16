@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Box, CircularProgress, Typography, Alert, Button } from '@mui/material';
+import { Box, CircularProgress, Typography, Alert } from '@mui/material';
 import { authService } from '../services/authService';
 import { MuiButton } from '../components/common';
 
@@ -13,7 +13,9 @@ export const GoogleAuthCallbackPage = () => {
 
   useEffect(() => {
     const handleCallback = async () => {
-      const code = searchParams.get('code');
+      const sessionId = searchParams.get('sessionId');
+      const email = searchParams.get('email');
+      const success = searchParams.get('success');
       const errorParam = searchParams.get('error');
 
       if (errorParam) {
@@ -22,24 +24,24 @@ export const GoogleAuthCallbackPage = () => {
         return;
       }
 
-      if (!code) {
+      if (success === 'true' && sessionId && email) {
+        try {
+          // Store sessionId for API calls
+          authService.handleCallbackSuccess(sessionId, email);
+          setStatus('success');
+          setMessage(`Successfully authenticated as ${email}`);
+          
+          // Redirect to expenses page after a short delay
+          setTimeout(() => {
+            navigate('/expenses');
+          }, 2000);
+        } catch (err) {
+          setStatus('error');
+          setError(err instanceof Error ? err.message : 'Failed to complete authentication');
+        }
+      } else {
         setStatus('error');
-        setError('No authorization code received');
-        return;
-      }
-
-      try {
-        const response = await authService.handleGoogleCallback(code);
-        setStatus('success');
-        setMessage(`Successfully authenticated as ${response.email || 'user'}`);
-        
-        // Redirect to expenses page after a short delay
-        setTimeout(() => {
-          navigate('/expenses');
-        }, 2000);
-      } catch (err: any) {
-        setStatus('error');
-        setError(err.message || 'Failed to complete authentication');
+        setError('Authentication failed: Missing session information');
       }
     };
 

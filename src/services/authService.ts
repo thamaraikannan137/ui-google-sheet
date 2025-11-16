@@ -1,6 +1,6 @@
 import { apiClient } from './api';
 import { API_ENDPOINTS, STORAGE_KEYS } from '../config/constants';
-import type { GoogleAuthResponse, AuthStatusResponse } from '../types/models';
+import type { AuthStatusResponse } from '../types/models';
 
 export const authService = {
   /**
@@ -13,49 +13,29 @@ export const authService = {
   },
 
   /**
-   * Handle OAuth callback - exchange code for tokens
-   * This is typically called from the callback page
+   * Handle OAuth callback success - backend already processed the code
+   * Backend redirects with sessionId and email in query params
    */
-  handleGoogleCallback: async (code: string): Promise<GoogleAuthResponse> => {
-    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
-    const response = await fetch(
-      `${apiBaseUrl}${API_ENDPOINTS.AUTH.GOOGLE_CALLBACK}?code=${code}`,
-      {
-        method: 'GET',
-        credentials: 'include', // Include cookies for session
-      }
-    );
-    
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Authentication failed');
-    }
-    
-    const data: GoogleAuthResponse = await response.json();
-    
-    // Store session ID in localStorage
-    if (data.sessionId) {
-      localStorage.setItem(STORAGE_KEYS.SESSION_ID, data.sessionId);
-    }
-    
-    return data;
+  handleCallbackSuccess: (sessionId: string, email: string): void => {
+    // Store sessionId for API calls (backend uses session-based auth)
+    localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, sessionId);
+    localStorage.setItem('user_email', email);
   },
 
   /**
    * Connect user's Google Spreadsheet
    */
   connectSpreadsheet: async (spreadsheetId: string): Promise<{ message: string; spreadsheetId: string; sessionId: string }> => {
-    const response = await apiClient.post<{ message: string; spreadsheetId: string; sessionId: string }>(
-      API_ENDPOINTS.AUTH.CONNECT,
-      { spreadsheetId }
-    );
-    
-    // Store spreadsheet ID
-    if (response.spreadsheetId) {
-      localStorage.setItem(STORAGE_KEYS.SPREADSHEET_ID, response.spreadsheetId);
+    const sessionId = authService.getToken();
+    if (!sessionId) {
+      throw new Error('Not authenticated. Please login again.');
     }
     
-    return response;
+    // Send sessionId both in header (via interceptor) and as query param (fallback)
+    return apiClient.post<{ message: string; spreadsheetId: string; sessionId: string }>(
+      `${API_ENDPOINTS.AUTH.CONNECT}?sessionId=${sessionId}`,
+      { spreadsheetId }
+    );
   },
 
   /**
@@ -74,32 +54,25 @@ export const authService = {
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
-      // Clear local storage regardless of API call success
-      localStorage.removeItem(STORAGE_KEYS.SESSION_ID);
-      localStorage.removeItem(STORAGE_KEYS.SPREADSHEET_ID);
+      // Clear all auth-related data
       localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+      localStorage.removeItem('user_email');
+      // Redirect to login page
+      window.location.href = '/login';
     }
   },
 
   /**
-   * Get stored session ID
+   * Get stored JWT token
    */
-  getSessionId: (): string | null => {
-    return localStorage.getItem(STORAGE_KEYS.SESSION_ID);
-  },
-
-  /**
-   * Get stored spreadsheet ID
-   */
-  getSpreadsheetId: (): string | null => {
-    return localStorage.getItem(STORAGE_KEYS.SPREADSHEET_ID);
+  getToken: (): string | null => {
+    return localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
   },
 
   /**
    * Check if user is authenticated (local check)
    */
   isAuthenticated: (): boolean => {
-    return !!localStorage.getItem(STORAGE_KEYS.SESSION_ID);
+    return !!localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
   },
 };
-

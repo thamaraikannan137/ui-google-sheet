@@ -7,9 +7,10 @@ interface ExpenseListProps {
   loading?: boolean;
   onEdit?: (expense: Expense) => void;
   onDelete?: (row: number) => void;
+  onView?: (expense: Expense) => void;
 }
 
-export const ExpenseList = ({ expenses, loading, onEdit, onDelete }: ExpenseListProps) => {
+export const ExpenseList = ({ expenses, loading, onEdit, onDelete, onView }: ExpenseListProps) => {
   const formatDate = (dateString?: string) => {
     if (!dateString) return '-';
     try {
@@ -55,30 +56,74 @@ export const ExpenseList = ({ expenses, loading, onEdit, onDelete }: ExpenseList
     );
   }
 
-  // Get headers from first expense (assuming all expenses have same structure)
-  const headers = Object.keys(expenses[0] || {}).filter(
-    (key) => key !== 'row' && expenses[0][key] !== undefined
-  );
+  // Get all unique column names from all expenses (dynamic columns from Google Sheet)
+  const getAllColumns = () => {
+    const columnSet = new Set<string>();
+    expenses.forEach((expense) => {
+      Object.keys(expense).forEach((key) => {
+        if (key !== 'row') {
+          columnSet.add(key);
+        }
+      });
+    });
+    return Array.from(columnSet);
+  };
 
-  // Standard columns we want to show first
-  const standardColumns = ['date', 'description', 'amount', 'category'];
-  const otherColumns = headers.filter((h) => !standardColumns.includes(h));
+  const columns = getAllColumns();
+
+  // Helper to check if a value looks like a date
+  const isDateValue = (value: any): boolean => {
+    if (typeof value !== 'string') return false;
+    // Check for common date patterns
+    return /^\d{4}-\d{2}-\d{2}/.test(value) || /^\d{2}\/\d{2}\/\d{4}/.test(value);
+  };
+
+  // Helper to check if a value looks like a number/amount
+  const isAmountValue = (value: any): boolean => {
+    if (value === '' || value === null || value === undefined) return false;
+    const str = String(value);
+    // Check if it's a number (with optional commas, decimals, currency symbols)
+    return /^[\d,]+\.?\d*$/.test(str.replace(/[$,]/g, ''));
+  };
+
+  // Helper to get cell value with formatting
+  const getCellValue = (expense: Expense, column: string) => {
+    const value = expense[column];
+    if (value === '' || value === null || value === undefined) return '-';
+    
+    // Format dates
+    if (isDateValue(value)) {
+      return formatDate(String(value));
+    }
+    
+    // Format amounts
+    if (isAmountValue(value)) {
+      return formatAmount(value);
+    }
+    
+    return String(value);
+  };
+
+  if (columns.length === 0) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 4 }}>
+        <Typography variant="h6" color="text.secondary">
+          No columns found in data
+        </Typography>
+      </Box>
+    );
+  }
 
   return (
     <TableContainer component={Paper}>
       <Table>
         <TableHead>
           <TableRow>
-            {standardColumns.map((col) => (
-              <TableCell key={col} sx={{ fontWeight: 'bold', textTransform: 'capitalize' }}>
+            {columns.map((col) => (
+              <TableCell key={col} sx={{ fontWeight: 'bold' }}>
                 {col}
               </TableCell>
             ))}
-            {otherColumns.length > 0 && (
-              <TableCell sx={{ fontWeight: 'bold', textTransform: 'capitalize' }}>
-                Additional Info
-              </TableCell>
-            )}
             {(onEdit || onDelete) && (
               <TableCell sx={{ fontWeight: 'bold' }} align="right">
                 Actions
@@ -88,34 +133,38 @@ export const ExpenseList = ({ expenses, loading, onEdit, onDelete }: ExpenseList
         </TableHead>
         <TableBody>
           {expenses.map((expense, index) => (
-            <TableRow key={expense.row || index} hover>
-              <TableCell>
-                {expense.date ? formatDate(expense.date) : '-'}
-              </TableCell>
-              <TableCell>{expense.description || '-'}</TableCell>
-              <TableCell>
-                <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-                  {formatAmount(expense.amount)}
-                </Typography>
-              </TableCell>
-              <TableCell>
-                {expense.category ? (
-                  <Chip label={expense.category} size="small" color="primary" variant="outlined" />
-                ) : (
-                  '-'
-                )}
-              </TableCell>
-              {otherColumns.length > 0 && (
-                <TableCell>
-                  {expense.notes ? (
-                    <Typography variant="body2" color="text.secondary" noWrap sx={{ maxWidth: 200 }}>
-                      {expense.notes}
-                    </Typography>
-                  ) : (
-                    '-'
-                  )}
-                </TableCell>
-              )}
+            <TableRow 
+              key={expense.row || index} 
+              hover
+              onClick={() => onView && onView(expense)}
+              sx={{ 
+                cursor: onView ? 'pointer' : 'default',
+                '&:hover': {
+                  backgroundColor: onView ? 'action.hover' : 'inherit',
+                }
+              }}
+            >
+              {columns.map((column) => {
+                const value = expense[column];
+                const cellValue = getCellValue(expense, column);
+                const isAmount = isAmountValue(value);
+                
+                return (
+                  <TableCell key={column}>
+                    {isAmount ? (
+                      <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+                        {cellValue}
+                      </Typography>
+                    ) : isDateValue(value) ? (
+                      <Typography variant="body2">
+                        {cellValue}
+                      </Typography>
+                    ) : (
+                      cellValue
+                    )}
+                  </TableCell>
+                );
+              })}
               {(onEdit || onDelete) && (
                 <TableCell align="right">
                   <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
@@ -123,7 +172,10 @@ export const ExpenseList = ({ expenses, loading, onEdit, onDelete }: ExpenseList
                       <IconButton
                         size="small"
                         color="primary"
-                        onClick={() => onEdit(expense)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onEdit(expense);
+                        }}
                         aria-label="edit expense"
                       >
                         <EditIcon fontSize="small" />
@@ -133,7 +185,10 @@ export const ExpenseList = ({ expenses, loading, onEdit, onDelete }: ExpenseList
                       <IconButton
                         size="small"
                         color="error"
-                        onClick={() => onDelete(expense.row!)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDelete(expense.row!);
+                        }}
                         aria-label="delete expense"
                       >
                         <DeleteIcon fontSize="small" />

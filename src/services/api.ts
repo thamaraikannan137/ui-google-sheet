@@ -12,24 +12,18 @@ class ApiClient {
       headers: {
         'Content-Type': 'application/json',
       },
-      withCredentials: true, // Enable cookie-based sessions
+      withCredentials: true, // Enable cookies for session-based auth
     });
 
-    // Request interceptor (add auth tokens, session IDs, etc.)
+    // Request interceptor - add sessionId header (backend uses session-based auth)
     this.axiosInstance.interceptors.request.use(
       (config) => {
-        // Add authentication token if available (for traditional auth)
-        const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
-        
-        // Add session ID header for Google Sheets OAuth (backend supports X-Session-Id header)
-        const sessionId = localStorage.getItem(STORAGE_KEYS.SESSION_ID);
+        const sessionId = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
         if (sessionId) {
-          config.headers['X-Session-Id'] = sessionId;
+          // Backend expects X-Session-Id header for session-based auth
+          // Using lowercase to match backend's header check
+          config.headers['x-session-id'] = sessionId;
         }
-        
         return config;
       },
       (error) => {
@@ -49,18 +43,9 @@ class ApiClient {
           // Handle specific status codes
           switch (error.response.status) {
             case 401:
-              // Unauthorized - check if it's a Google Sheets auth issue
-              const errorData = error.response.data as any;
-              if (errorData?.authUrl?.includes('/auth/google')) {
-                // Google Sheets authentication required
-                localStorage.removeItem(STORAGE_KEYS.SESSION_ID);
-                localStorage.removeItem(STORAGE_KEYS.SPREADSHEET_ID);
-                // Don't redirect automatically, let components handle it
-              } else {
-                // Traditional auth - clear token and redirect to login
-                localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
-                window.location.href = '/login';
-              }
+              // Unauthorized - clear token and redirect to login
+              localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+              window.location.href = '/login';
               break;
             case 403:
               console.error('Forbidden access');
