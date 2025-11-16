@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Box, Typography, Button, Dialog, DialogTitle, DialogContent, DialogActions, Alert, Snackbar, Divider, Paper, IconButton, TextField } from '@mui/material';
-import { Add as AddIcon, Close as CloseIcon } from '@mui/icons-material';
+import { Add as AddIcon, Close as CloseIcon, AttachFile as AttachFileIcon, Download as DownloadIcon, Image as ImageIcon } from '@mui/icons-material';
 import { useAppDispatch, useAppSelector } from '../store';
 import {
   fetchExpenses,
@@ -13,6 +13,7 @@ import {
 } from '../store/slices/expenseSlice';
 import { ExpenseForm, ExpenseList } from '../components/features/expenses';
 import { authService } from '../services/authService';
+import { expenseService } from '../services/expenseService';
 import type { Expense, ExpenseFormData } from '../types/models';
 import { MuiButton } from '../components/common';
 
@@ -23,6 +24,10 @@ export const ExpensesPage = () => {
   const [isEditMode, setIsEditMode] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+  const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const [previewFileName, setPreviewFileName] = useState<string>('');
+  const [previewFileId, setPreviewFileId] = useState<string>('');
   const [isSpreadsheetDialogOpen, setIsSpreadsheetDialogOpen] = useState(false);
   const [spreadsheetUrl, setSpreadsheetUrl] = useState('');
   const [spreadsheetUrlError, setSpreadsheetUrlError] = useState('');
@@ -107,18 +112,57 @@ export const ExpensesPage = () => {
     setIsFormOpen(true);
   };
 
-  const handleSubmit = async (data: Record<string, unknown>) => {
+  const handleSubmit = async (data: Record<string, unknown>, file?: File) => {
     try {
       // Backend expects object with column names as keys - convert to ExpenseFormData format
       const expenseData = data as unknown as ExpenseFormData;
       
       if (isEditMode && selectedExpense?.row) {
+        // Update expense first
         await dispatch(updateExpense({ row: selectedExpense.row, expenseData })).unwrap();
-        setSnackbar({ open: true, message: 'Expense updated successfully', severity: 'success' });
+        
+        // Upload file if provided
+        if (file) {
+          try {
+            await expenseService.uploadAttachment(selectedExpense.row, file);
+            setSnackbar({ open: true, message: 'Expense and file updated successfully', severity: 'success' });
+          } catch (fileError) {
+            console.error('File upload error:', fileError);
+            setSnackbar({ open: true, message: 'Expense updated but file upload failed', severity: 'error' });
+          }
+        } else {
+          setSnackbar({ open: true, message: 'Expense updated successfully', severity: 'success' });
+        }
       } else {
+        // Create expense first
         await dispatch(createExpense(expenseData)).unwrap();
-        setSnackbar({ open: true, message: 'Expense added successfully', severity: 'success' });
+        
+        // Refresh expenses to get updated list with row numbers
+        const updatedExpenses = await dispatch(fetchExpenses()).unwrap();
+        
+        // Get the new row number (last expense row)
+        const newRow = updatedExpenses.length > 0 && updatedExpenses[updatedExpenses.length - 1].row 
+          ? updatedExpenses[updatedExpenses.length - 1].row! 
+          : updatedExpenses.length + 1; // Fallback: row = array length + 1 (since row 1 is header)
+        
+        // Upload file if provided
+        if (file && newRow) {
+          try {
+            await expenseService.uploadAttachment(newRow, file);
+            setSnackbar({ open: true, message: 'Expense and file added successfully', severity: 'success' });
+            // Refresh again to get file ID in expense data
+            await dispatch(fetchExpenses());
+          } catch (fileError) {
+            console.error('File upload error:', fileError);
+            setSnackbar({ open: true, message: 'Expense added but file upload failed', severity: 'error' });
+          }
+        } else {
+          setSnackbar({ open: true, message: 'Expense added successfully', severity: 'success' });
+        }
       }
+      
+      // Refresh expenses list
+      await dispatch(fetchExpenses());
       handleCloseForm();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to save expense';
@@ -160,6 +204,42 @@ export const ExpensesPage = () => {
   const handleCloseDetailDialog = () => {
     setIsDetailDialogOpen(false);
     setSelectedExpenseForView(null);
+  };
+
+  const handleOpenImagePreview = async (fileId: string, fileName: string) => {
+    try {
+      const imageUrl = expenseService.getAttachmentUrl(fileId);
+      setPreviewImageUrl(imageUrl);
+      setPreviewFileName(fileName);
+      setPreviewFileId(fileId);
+      setIsImagePreviewOpen(true);
+    } catch (error) {
+      console.error('Error opening image preview:', error);
+      setSnackbar({ open: true, message: 'Failed to load image', severity: 'error' });
+    }
+  };
+
+  const handleCloseImagePreview = () => {
+    setIsImagePreviewOpen(false);
+    setPreviewImageUrl(null);
+    setPreviewFileName('');
+    setPreviewFileId('');
+  };
+
+  const handleDownloadFile = async (fileId: string, fileName: string) => {
+    try {
+      const downloadUrl = expenseService.getAttachmentUrl(fileId);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = fileName;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      setSnackbar({ open: true, message: 'Failed to download file', severity: 'error' });
+    }
   };
 
   const handleGoogleLogin = () => {
@@ -375,6 +455,11 @@ export const ExpensesPage = () => {
             onSubmit={handleSubmit}
             onCancel={handleCloseForm}
             isLoading={loading}
+            expenseRow={isEditMode && selectedExpense?.row ? selectedExpense.row : undefined}
+            existingFileId={isEditMode && selectedExpense ? 
+              (selectedExpense['Attachment Path'] as string) || 
+              (selectedExpense['attachment'] as string) || 
+              null : null}
           />
         </DialogContent>
       </Dialog>
@@ -401,65 +486,114 @@ export const ExpensesPage = () => {
         <Divider />
         <DialogContent sx={{ mt: 2 }}>
           {selectedExpenseForView && (
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-              {Object.keys(selectedExpenseForView)
-                .filter(key => key !== 'row')
-                .map((key) => {
-                  const value = selectedExpenseForView[key];
-                  const isDate = typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value);
-                  const isAmount = value !== '' && value !== null && value !== undefined && 
-                    /^[\d,]+\.?\d*$/.test(String(value).replace(/[$,]/g, ''));
-                  
-                  let displayValue = '-';
-                  if (value === '' || value === null || value === undefined) {
-                    displayValue = '-';
-                  } else if (isDate) {
-                    try {
-                      const date = new Date(String(value));
-                      displayValue = date.toLocaleDateString('en-US', { 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric' 
-                      });
-                    } catch {
+            <>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                {Object.keys(selectedExpenseForView)
+                  .filter(key => key !== 'row' && 
+                    !key.toLowerCase().includes('attachment') && 
+                    !key.toLowerCase().includes('file'))
+                  .map((key) => {
+                    const value = selectedExpenseForView[key];
+                    const isDate = typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value);
+                    const isAmount = value !== '' && value !== null && value !== undefined && 
+                      /^[\d,]+\.?\d*$/.test(String(value).replace(/[$,]/g, ''));
+                    
+                    let displayValue = '-';
+                    if (value === '' || value === null || value === undefined) {
+                      displayValue = '-';
+                    } else if (isDate) {
+                      try {
+                        const date = new Date(String(value));
+                        displayValue = date.toLocaleDateString('en-US', { 
+                          year: 'numeric', 
+                          month: 'long', 
+                          day: 'numeric' 
+                        });
+                      } catch {
+                        displayValue = String(value);
+                      }
+                    } else if (isAmount) {
+                      const numValue = typeof value === 'string' ? parseFloat(value.replace(/[$,]/g, '')) : value;
+                      displayValue = new Intl.NumberFormat('en-US', {
+                        style: 'currency',
+                        currency: 'USD',
+                      }).format(numValue);
+                    } else {
                       displayValue = String(value);
                     }
-                  } else if (isAmount) {
-                    const numValue = typeof value === 'string' ? parseFloat(value.replace(/[$,]/g, '')) : value;
-                    displayValue = new Intl.NumberFormat('en-US', {
-                      style: 'currency',
-                      currency: 'USD',
-                    }).format(numValue);
-                  } else {
-                    displayValue = String(value);
-                  }
 
-                  return (
-                    <Paper 
-                      key={key}
-                      sx={{ 
-                        p: 2, 
-                        flex: { xs: '1 1 100%', sm: '1 1 calc(50% - 8px)' },
-                        minWidth: { xs: '100%', sm: '200px' }
-                      }}
-                    >
-                      <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 600 }}>
-                        {key}
-                      </Typography>
-                      <Typography 
-                        variant="body1" 
+                    return (
+                      <Paper 
+                        key={key}
                         sx={{ 
-                          mt: 1, 
-                          fontWeight: isAmount ? 600 : 400,
-                          color: isAmount ? 'primary.main' : 'text.primary'
+                          p: 2, 
+                          flex: { xs: '1 1 100%', sm: '1 1 calc(50% - 8px)' },
+                          minWidth: { xs: '100%', sm: '200px' }
                         }}
                       >
-                        {displayValue}
+                        <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 600 }}>
+                          {key}
+                        </Typography>
+                        <Typography 
+                          variant="body1" 
+                          sx={{ 
+                            mt: 1, 
+                            fontWeight: isAmount ? 600 : 400,
+                            color: isAmount ? 'primary.main' : 'text.primary'
+                          }}
+                        >
+                          {displayValue}
+                        </Typography>
+                      </Paper>
+                    );
+                  })}
+              </Box>
+              
+              {/* Attachment Section */}
+              {(() => {
+                const attachmentKey = Object.keys(selectedExpenseForView).find(key => 
+                  key.toLowerCase().includes('attachment') || key.toLowerCase().includes('file')
+                );
+                const fileId = attachmentKey ? (selectedExpenseForView[attachmentKey] as string) : null;
+                
+                if (fileId && fileId.trim() !== '') {
+                  const fileName = 'Attachment';
+                  
+                  return (
+                    <Box sx={{ mt: 3, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
+                      <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                        Attachment
                       </Typography>
-                    </Paper>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                        <AttachFileIcon />
+                        <Typography variant="body2" sx={{ flex: 1 }}>
+                          File attached
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={<ImageIcon />}
+                            onClick={() => handleOpenImagePreview(fileId, fileName)}
+                          >
+                            Preview
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={<DownloadIcon />}
+                            onClick={() => handleDownloadFile(fileId, fileName)}
+                          >
+                            Download
+                          </Button>
+                        </Box>
+                      </Box>
+                    </Box>
                   );
-                })}
-            </Box>
+                }
+                return null;
+              })()}
+            </>
           )}
         </DialogContent>
         <Divider />
@@ -479,6 +613,77 @@ export const ExpensesPage = () => {
               Edit
             </Button>
           )}
+        </DialogActions>
+      </Dialog>
+
+      {/* Image Preview Dialog */}
+      <Dialog 
+        open={isImagePreviewOpen} 
+        onClose={handleCloseImagePreview}
+        maxWidth="lg"
+        fullWidth
+      >
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="h6">
+            {previewFileName || 'Image Preview'}
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            {previewFileId && (
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<DownloadIcon />}
+                onClick={() => handleDownloadFile(previewFileId, previewFileName || 'image')}
+              >
+                Download
+              </Button>
+            )}
+            <IconButton onClick={handleCloseImagePreview} size="small">
+              <CloseIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <Divider />
+        <DialogContent sx={{ p: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+          {previewImageUrl ? (
+            <Box sx={{ width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', p: 2 }}>
+              <img
+                src={previewImageUrl}
+                alt="Preview"
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: '70vh',
+                  objectFit: 'contain',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                }}
+                onClick={() => {
+                  // Open in new tab for full size
+                  window.open(previewImageUrl, '_blank');
+                }}
+                onError={(e) => {
+                  // If image fails to load, show error message
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  const errorBox = document.createElement('div');
+                  errorBox.textContent = 'Failed to load image. Click Download to view.';
+                  errorBox.style.padding = '20px';
+                  errorBox.style.textAlign = 'center';
+                  target.parentElement?.appendChild(errorBox);
+                }}
+              />
+            </Box>
+          ) : (
+            <Box sx={{ p: 4, textAlign: 'center' }}>
+              <Typography color="text.secondary">Loading image...</Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <Divider />
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={handleCloseImagePreview} variant="outlined">
+            Close
+          </Button>
         </DialogActions>
       </Dialog>
 

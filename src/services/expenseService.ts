@@ -1,5 +1,5 @@
 import { apiClient } from './api';
-import { API_ENDPOINTS } from '../config/constants';
+import { API_ENDPOINTS, API_BASE_URL } from '../config/constants';
 import type { Expense, ExpenseFormData } from '../types/models';
 
 export const expenseService = {
@@ -50,6 +50,79 @@ export const expenseService = {
    */
   deleteExpense: async (row: number): Promise<{ message: string }> => {
     return apiClient.delete<{ message: string }>(`${API_ENDPOINTS.EXPENSES}/${row}`);
+  },
+
+  /**
+   * Upload file attachment for an expense
+   */
+  uploadAttachment: async (row: number, file: File): Promise<{ 
+    message: string; 
+    fileId: string; 
+    webViewLink: string; 
+    webContentLink: string; 
+    fileName: string;
+  }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const sessionId = localStorage.getItem('auth_token');
+    if (!sessionId) {
+      throw new Error('Not authenticated');
+    }
+
+    const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.ATTACHMENTS.UPLOAD(row)}`, {
+      method: 'POST',
+      headers: {
+        'x-session-id': sessionId,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to upload file');
+    }
+
+    return response.json();
+  },
+
+  /**
+   * Get attachment info for an expense
+   */
+  getAttachment: async (row: number): Promise<{ 
+    hasAttachment: boolean; 
+    fileId: string | null; 
+    fileName?: string;
+    mimeType?: string;
+    isImage?: boolean;
+    downloadUrl: string | null;
+    webViewLink?: string;
+  }> => {
+    return apiClient.get<{ 
+      hasAttachment: boolean; 
+      fileId: string | null; 
+      fileName?: string;
+      mimeType?: string;
+      isImage?: boolean;
+      downloadUrl: string | null;
+      webViewLink?: string;
+    }>(API_ENDPOINTS.ATTACHMENTS.GET(row));
+  },
+
+  /**
+   * Get attachment download URL with session ID
+   */
+  getAttachmentUrl: (fileId: string): string => {
+    const sessionId = localStorage.getItem('auth_token');
+    const baseUrl = `${API_BASE_URL}${API_ENDPOINTS.ATTACHMENTS.DOWNLOAD(fileId)}`;
+    return sessionId ? `${baseUrl}?sessionId=${sessionId}` : baseUrl;
+  },
+
+  /**
+   * Delete attachment
+   */
+  deleteAttachment: async (fileId: string): Promise<{ message: string }> => {
+    return apiClient.delete<{ message: string }>(API_ENDPOINTS.ATTACHMENTS.DELETE(fileId));
   },
 };
 

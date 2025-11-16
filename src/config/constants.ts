@@ -26,5 +26,11 @@ export const API_ENDPOINTS = {
     STATUS: '/auth/status',
     LOGOUT: '/auth/logout',
   },
+  ATTACHMENTS: {
+    UPLOAD: (row: number) => `/expenses/${row}/attachments`,
+    GET: (row: number) => `/expenses/${row}/attachments`,
+    DOWNLOAD: (fileId: string) => `/attachments/${fileId}`,
+    DELETE: (fileId: string) => `/attachments/${fileId}`,
+  },
 } as const;
 

@@ -1,15 +1,18 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { MuiButton, MuiInput } from '../../common';
-import { Box } from '@mui/material';
+import { Box, Typography, IconButton, LinearProgress, Alert } from '@mui/material';
+import { AttachFile as AttachFileIcon, Delete as DeleteIcon, CloudUpload as CloudUploadIcon } from '@mui/icons-material';
 import type { Expense, ExpenseFormData } from '../../../types/models';
 
 interface ExpenseFormProps {
   defaultValues?: Partial<ExpenseFormData> | Expense | Record<string, unknown>;
-  onSubmit: (data: Record<string, unknown>) => Promise<void>;
+  onSubmit: (data: Record<string, unknown>, file?: File) => Promise<void>;
   onCancel?: () => void;
   isLoading?: boolean;
   columns?: string[]; // Dynamic columns from Google Sheet
+  expenseRow?: number; // Row number for file upload (required if editing)
+  existingFileId?: string | null; // Existing file ID if editing
 }
 
 // Helper to convert date format to YYYY-MM-DD for HTML date input
@@ -19,6 +22,13 @@ const convertToDateInputFormat = (dateStr: string): string => {
   // Already in YYYY-MM-DD format
   if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
     return dateStr;
+  }
+  
+  // Handle DD-MM-YYYY format (e.g., "17-11-2024")
+  const ddmmyyyyHyphenMatch = dateStr.match(/^(\d{2})-(\d{2})-(\d{4})/);
+  if (ddmmyyyyHyphenMatch) {
+    const [, day, month, year] = ddmmyyyyHyphenMatch;
+    return `${year}-${month}-${day}`;
   }
   
   // Handle DD.MM.YYYY format (e.g., "20.04.2025")
@@ -56,6 +66,7 @@ const getFieldType = (columnName: string, value: unknown): 'date' | 'number' | '
   if (lowerName.includes('date') || 
       (typeof value === 'string' && (
         /^\d{4}-\d{2}-\d{2}/.test(value) || 
+        /^\d{2}-\d{2}-\d{4}/.test(value) ||  // DD-MM-YYYY format
         /^\d{2}\.\d{2}\.\d{4}/.test(value) ||
         /^\d{2}\/\d{2}\/\d{4}/.test(value)
       ))) {
@@ -73,7 +84,19 @@ const getFieldType = (columnName: string, value: unknown): 'date' | 'number' | '
   return 'text';
 };
 
-export const ExpenseForm = ({ defaultValues, onSubmit, onCancel, isLoading, columns }: ExpenseFormProps) => {
+export const ExpenseForm = ({ 
+  defaultValues, 
+  onSubmit, 
+  onCancel, 
+  isLoading, 
+  columns,
+  expenseRow,
+  existingFileId 
+}: ExpenseFormProps) => {
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [filePreview, setFilePreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   // Get columns from props or extract from defaultValues
   const formColumns = useMemo(() => {
     if (columns && columns.length > 0) {
@@ -149,8 +172,41 @@ export const ExpenseForm = ({ defaultValues, onSubmit, onCancel, isLoading, colu
     });
   }, [defaultValues, reset, initialValues, formColumns, setValue]);
 
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Validate file size (10MB limit)
+      if (file.size > 10 * 1024 * 1024) {
+        alert('File size must be less than 10MB');
+        return;
+      }
+      
+      setSelectedFile(file);
+      
+      // Create preview for images
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setFilePreview(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        setFilePreview(null);
+      }
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setSelectedFile(null);
+    setFilePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const handleFormSubmit = async (data: Record<string, unknown>) => {
-    await onSubmit(data);
+    // Pass file only if one is selected
+    await onSubmit(data, selectedFile || undefined);
   };
 
   return (
@@ -182,6 +238,75 @@ export const ExpenseForm = ({ defaultValues, onSubmit, onCancel, isLoading, colu
           />
         );
       })}
+
+      {/* File Upload Section */}
+      <Box sx={{ mt: 2, p: 2, border: '1px dashed', borderColor: 'divider', borderRadius: 1 }}>
+        <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+          Attachment (Optional)
+        </Typography>
+        
+        {existingFileId && !selectedFile && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            <Typography variant="body2">
+              Current file attached. Upload a new file to replace it.
+            </Typography>
+          </Alert>
+        )}
+
+        {filePreview && (
+          <Box sx={{ mb: 2, textAlign: 'center' }}>
+            <img 
+              src={filePreview} 
+              alt="Preview" 
+              style={{ maxWidth: '100%', maxHeight: '200px', borderRadius: '4px' }}
+            />
+          </Box>
+        )}
+
+        {selectedFile && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, p: 1, bgcolor: 'action.hover', borderRadius: 1 }}>
+            <AttachFileIcon fontSize="small" />
+            <Typography variant="body2" sx={{ flex: 1 }}>
+              {selectedFile.name} ({(selectedFile.size / 1024).toFixed(2)} KB)
+            </Typography>
+            <IconButton size="small" onClick={handleRemoveFile} color="error">
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Box>
+        )}
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx"
+          onChange={handleFileSelect}
+          style={{ display: 'none' }}
+          id="file-upload-input"
+        />
+        <label htmlFor="file-upload-input">
+          <MuiButton
+            component="span"
+            variant="outlined"
+            startIcon={<CloudUploadIcon />}
+            disabled={isSubmitting || isLoading || uploading}
+            sx={{ width: '100%' }}
+          >
+            {selectedFile ? 'Change File' : existingFileId ? 'Replace File' : 'Choose File'}
+          </MuiButton>
+        </label>
+        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+          Supported: Images, PDF, Word, Excel (Max 10MB)
+        </Typography>
+      </Box>
+
+      {uploading && (
+        <Box sx={{ mt: 1 }}>
+          <LinearProgress />
+          <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+            Uploading file...
+          </Typography>
+        </Box>
+      )}
 
       <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
         {onCancel && (
