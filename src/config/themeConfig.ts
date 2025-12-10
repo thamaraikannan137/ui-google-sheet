@@ -19,21 +19,25 @@ const themeConfig = {
     error: {
       main: '#d32f2f',
       light: '#ef5350',
+      lighter: '#ffebee',
       dark: '#c62828',
     },
     warning: {
       main: '#ed6c02',
       light: '#ff9800',
+      lighter: '#fff3e0',
       dark: '#e65100',
     },
     info: {
       main: '#0288d1',
       light: '#03a9f4',
+      lighter: '#e1f5fe',
       dark: '#01579b',
     },
     success: {
       main: '#2e7d32',
       light: '#4caf50',
+      lighter: '#e8f5e9',
       dark: '#1b5e20',
     },
   },

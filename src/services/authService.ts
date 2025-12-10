@@ -57,6 +57,7 @@ export const authService = {
       // Clear all auth-related data
       localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
       localStorage.removeItem('user_email');
+      localStorage.removeItem('projectId');
       // Redirect to login page
       window.location.href = '/login';
     }

@@ -16,9 +16,10 @@ import IconButton from '@mui/material/IconButton';
 
 // Hook Imports
 import { useNavigation } from '../../hooks/useNavigation';
+import { useProjects } from '../../hooks/useProjects';
 
 // Config Imports
-import { navigationItems as menuItems, navigationConfig } from '../../config/navigation';
+import { navigationItems as menuItems, getProjectNavigationItems, navigationConfig } from '../../config/navigation';
 
 const { navWidth: drawerWidth, collapsedWidth } = navigationConfig;
 
@@ -32,6 +33,7 @@ const iconMap: { [key: string]: React.ReactNode } = {
   Login: <i className="ri-login-box-line" />,
   PersonAdd: <i className="ri-user-add-line" />,
   Settings: <i className="ri-settings-3-line" />,
+  Folder: <i className="ri-folder-line" />,
 };
 
 const StyledDrawer = styled(Drawer)(({ theme }) => ({
@@ -74,6 +76,13 @@ export const Navigation: React.FC<NavigationProps> = ({ open = false, onClose })
     handleMouseLeave
   } = useNavigation();
 
+  const { currentProject } = useProjects();
+
+  // Combine base navigation items with project-specific items
+  const allMenuItems = currentProject 
+    ? [...menuItems, ...getProjectNavigationItems(currentProject.id)]
+    : menuItems;
+
   const handleNavigation = (path: string) => {
     navigate(path);
     // Close mobile drawer on navigation
@@ -103,14 +112,19 @@ export const Navigation: React.FC<NavigationProps> = ({ open = false, onClose })
       }}>
         <Typography 
           variant="h6" 
+          onClick={() => handleNavigation('/projects')}
           sx={{ 
             color: 'primary.main', 
             fontWeight: 600,
+            cursor: 'pointer',
             opacity: isCollapsed && !isHovered ? 0 : 1,
             transition: theme => theme.transitions.create('opacity', {
               duration: theme.transitions.duration.standard,
               easing: theme.transitions.easing.easeInOut
-            })
+            }),
+            '&:hover': {
+              opacity: 0.8,
+            }
           }}
         >
           React Dashboard
@@ -132,7 +146,7 @@ export const Navigation: React.FC<NavigationProps> = ({ open = false, onClose })
       </Box>
       <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
         <List component="nav" sx={{ px: 2 }}>
-          {menuItems.map((item) => (
+          {allMenuItems.map((item) => (
             <ListItem key={item.title} disablePadding sx={{ mb: 1 }}>
               <ListItemButton
                 sx={{

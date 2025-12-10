@@ -39,7 +39,7 @@ export const LoginPage = () => {
       try {
         const status = await authService.checkAuthStatus();
         if (status.authenticated) {
-          navigate('/expenses');
+          navigate('/projects');
         }
       } catch {
         // Not authenticated, stay on login page

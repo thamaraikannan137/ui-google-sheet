@@ -4,12 +4,14 @@ import type { TypedUseSelectorHook } from 'react-redux';
 import userReducer from './slices/userSlice';
 import authReducer from './slices/authSlice';
 import expenseReducer from './slices/expenseSlice';
+import projectReducer from './slices/projectSlice';
 
 export const store = configureStore({
   reducer: {
     user: userReducer,
     auth: authReducer,
     expense: expenseReducer,
+    project: projectReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

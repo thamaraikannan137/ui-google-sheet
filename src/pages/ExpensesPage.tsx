@@ -1,25 +1,21 @@
 import { useEffect, useState } from 'react';
-import { Box, Typography, Button, Dialog, DialogTitle, DialogContent, DialogActions, Alert, Snackbar, Divider, Paper, IconButton, TextField } from '@mui/material';
+import { useNavigate, useParams } from 'react-router-dom';
+import { Box, Typography, Button, Dialog, DialogTitle, DialogContent, DialogActions, Alert, Snackbar, Divider, Paper, IconButton, TextField, CircularProgress } from '@mui/material';
 import { Add as AddIcon, Close as CloseIcon, AttachFile as AttachFileIcon, Download as DownloadIcon, Image as ImageIcon } from '@mui/icons-material';
-import { useAppDispatch, useAppSelector } from '../store';
-import {
-  fetchExpenses,
-  createExpense,
-  updateExpense,
-  deleteExpense,
-  setSelectedExpense,
-  clearSelectedExpense,
-  clearError,
-} from '../store/slices/expenseSlice';
+import { useExpenses } from '../hooks/useExpenses';
+import { useAuth } from '../hooks/useAuth';
+import { useProjects } from '../hooks/useProjects';
 import { ExpenseForm, ExpenseList } from '../components/features/expenses';
-import { authService } from '../services/authService';
 import { expenseService } from '../services/expenseService';
 import type { Expense, ExpenseFormData } from '../types/models';
 import { MuiButton } from '../components/common';
 
 export const ExpensesPage = () => {
-  const dispatch = useAppDispatch();
-  const { expenses, loading, error, selectedExpense } = useAppSelector((state) => state.expense);
+  const navigate = useNavigate();
+  const { projectId } = useParams<{ projectId: string }>();
+  const { expenses, loading, error, selectedExpense, fetchExpenses, createExpense, updateExpense, deleteExpense, setSelectedExpense } = useExpenses();
+  const { checkAuthStatus, isAuthenticated: authIsAuthenticated, initiateGoogleAuth } = useAuth();
+  const { currentProject, projects, fetchProjects, selectProject } = useProjects();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -28,24 +24,64 @@ export const ExpensesPage = () => {
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [previewFileName, setPreviewFileName] = useState<string>('');
   const [previewFileId, setPreviewFileId] = useState<string>('');
-  const [isSpreadsheetDialogOpen, setIsSpreadsheetDialogOpen] = useState(false);
-  const [spreadsheetUrl, setSpreadsheetUrl] = useState('');
-  const [spreadsheetUrlError, setSpreadsheetUrlError] = useState('');
   const [selectedExpenseForView, setSelectedExpenseForView] = useState<Expense | null>(null);
   const [expenseToDelete, setExpenseToDelete] = useState<number | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [spreadsheetConnected, setSpreadsheetConnected] = useState(false);
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false,
     message: '',
     severity: 'success',
   });
 
-  // Check auth and fetch expenses on mount
+  // Check auth and fetch projects on mount
   useEffect(() => {
-    checkAuthAndFetch();
+    const initialize = async () => {
+      try {
+        await checkAuthStatus();
+        await fetchProjects();
+      } catch (error) {
+        console.error('Initialization error:', error);
+      }
+    };
+    initialize();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, []); // Run only on mount
+
+  // Validate and set project from URL
+  useEffect(() => {
+    if (!authIsAuthenticated) {
+      navigate('/login');
+      return;
+    }
+
+    if (!projectId) {
+      navigate('/projects');
+      return;
+    }
+
+    // If projects are loaded, validate the projectId
+    if (projects.length > 0) {
+      const project = projects.find(p => p.id === parseInt(projectId));
+      if (!project) {
+        // Invalid project ID
+        navigate('/projects');
+        return;
+      }
+      
+      // Set as current project if not already
+      if (!currentProject || currentProject.id !== project.id) {
+        selectProject(project);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, authIsAuthenticated, projects]);
+
+  // Fetch expenses when project is set
+  useEffect(() => {
+    if (currentProject && projectId && currentProject.id === parseInt(projectId)) {
+      fetchExpenses().catch(console.error);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentProject, projectId]);
 
   // Debug: Log expenses state
   useEffect(() => {
@@ -55,38 +91,20 @@ export const ExpensesPage = () => {
     console.log('ExpensesPage - error:', error);
   }, [expenses, loading, error]);
 
-  const checkAuthAndFetch = async () => {
-    try {
-      const status = await authService.checkAuthStatus();
-      setIsAuthenticated(status.authenticated || false);
-      setSpreadsheetConnected(status.spreadsheetConnected || false);
-      if (status.authenticated && status.spreadsheetConnected) {
-        dispatch(fetchExpenses()).then((result) => {
-          // Log for debugging
-          if (fetchExpenses.fulfilled.match(result)) {
-            console.log('Expenses fetched successfully:', result.payload);
-          } else if (fetchExpenses.rejected.match(result)) {
-            console.error('Failed to fetch expenses:', result.error);
-          }
-        });
-      }
-    } catch (error) {
-      console.error('Auth check error:', error);
-      setIsAuthenticated(false);
-      setSpreadsheetConnected(false);
-    }
+  const handleGoogleLogin = () => {
+    initiateGoogleAuth();
   };
 
   const handleOpenForm = () => {
     setIsEditMode(false);
-    dispatch(clearSelectedExpense());
+    setSelectedExpense(null);
     setIsFormOpen(true);
   };
 
   const handleCloseForm = () => {
     setIsFormOpen(false);
     setIsEditMode(false);
-    dispatch(clearSelectedExpense());
+    setSelectedExpense(null);
   };
 
   // Get all unique column names from expenses
@@ -107,7 +125,7 @@ export const ExpensesPage = () => {
   };
 
   const handleEdit = (expense: Expense) => {
-    dispatch(setSelectedExpense(expense));
+    setSelectedExpense(expense);
     setIsEditMode(true);
     setIsFormOpen(true);
   };
@@ -119,7 +137,7 @@ export const ExpensesPage = () => {
       
       if (isEditMode && selectedExpense?.row) {
         // Update expense first
-        await dispatch(updateExpense({ row: selectedExpense.row, expenseData })).unwrap();
+        await updateExpense(selectedExpense.row, expenseData);
         
         // Upload file if provided
         if (file) {
@@ -135,10 +153,11 @@ export const ExpensesPage = () => {
         }
       } else {
         // Create expense first
-        await dispatch(createExpense(expenseData)).unwrap();
+        await createExpense(expenseData);
         
         // Refresh expenses to get updated list with row numbers
-        const updatedExpenses = await dispatch(fetchExpenses()).unwrap();
+        await fetchExpenses();
+        const updatedExpenses = expenses;
         
         // Get the new row number (last expense row)
         const newRow = updatedExpenses.length > 0 && updatedExpenses[updatedExpenses.length - 1].row 
@@ -151,7 +170,7 @@ export const ExpensesPage = () => {
             await expenseService.uploadAttachment(newRow, file);
             setSnackbar({ open: true, message: 'Expense and file added successfully', severity: 'success' });
             // Refresh again to get file ID in expense data
-            await dispatch(fetchExpenses());
+            await fetchExpenses();
           } catch (fileError) {
             console.error('File upload error:', fileError);
             setSnackbar({ open: true, message: 'Expense added but file upload failed', severity: 'error' });
@@ -162,7 +181,7 @@ export const ExpensesPage = () => {
       }
       
       // Refresh expenses list
-      await dispatch(fetchExpenses());
+      await fetchExpenses();
       handleCloseForm();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to save expense';
@@ -178,7 +197,7 @@ export const ExpensesPage = () => {
   const handleDeleteConfirm = async () => {
     if (expenseToDelete) {
       try {
-        await dispatch(deleteExpense(expenseToDelete)).unwrap();
+        await deleteExpense(expenseToDelete);
         setSnackbar({ open: true, message: 'Expense deleted successfully', severity: 'success' });
         setIsDeleteDialogOpen(false);
         setExpenseToDelete(null);
@@ -242,87 +261,12 @@ export const ExpensesPage = () => {
     }
   };
 
-  const handleGoogleLogin = () => {
-    authService.initiateGoogleAuth();
-  };
-
-  // Extract spreadsheet ID from Google Sheets URL
-  const extractSpreadsheetId = (url: string): string | null => {
-    if (!url || typeof url !== 'string') return null;
-    
-    // Remove whitespace
-    url = url.trim();
-    
-    // Pattern 1: https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/edit
-    // Pattern 2: https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/edit#gid=0
-    // Pattern 3: Just the ID itself (if user pastes only the ID)
-    const patterns = [
-      /\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/,
-      /^([a-zA-Z0-9-_]+)$/,
-    ];
-    
-    for (const pattern of patterns) {
-      const match = url.match(pattern);
-      if (match && match[1]) {
-        return match[1];
-      }
-    }
-    
-    return null;
-  };
-
-  const handleOpenSpreadsheetDialog = () => {
-    setIsSpreadsheetDialogOpen(true);
-    setSpreadsheetUrl('');
-    setSpreadsheetUrlError('');
-  };
-
-  const handleCloseSpreadsheetDialog = () => {
-    setIsSpreadsheetDialogOpen(false);
-    setSpreadsheetUrl('');
-    setSpreadsheetUrlError('');
-  };
-
-  const handleConnectSpreadsheet = async () => {
-    if (!spreadsheetUrl.trim()) {
-      setSpreadsheetUrlError('Please enter a Google Sheets URL');
-      return;
-    }
-
-    const spreadsheetId = extractSpreadsheetId(spreadsheetUrl);
-    
-    if (!spreadsheetId) {
-      setSpreadsheetUrlError('Invalid Google Sheets URL. Please paste the full URL from your browser.');
-      return;
-    }
-
-    try {
-      // Check if sessionId exists before making request
-      const sessionId = authService.getToken();
-      if (!sessionId) {
-        setSnackbar({ open: true, message: 'Not authenticated. Please login again.', severity: 'error' });
-        return;
-      }
-      
-      await authService.connectSpreadsheet(spreadsheetId);
-      setSnackbar({ open: true, message: 'Spreadsheet connected successfully', severity: 'success' });
-      handleCloseSpreadsheetDialog();
-      await checkAuthAndFetch();
-    } catch (err) {
-      console.error('Connect spreadsheet error:', err);
-      const errorMessage = err instanceof Error 
-        ? err.message 
-        : (err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Failed to connect spreadsheet';
-      setSnackbar({ open: true, message: errorMessage, severity: 'error' });
-    }
-  };
-
   const handleCloseSnackbar = () => {
     setSnackbar({ ...snackbar, open: false });
   };
 
   // Show login prompt if not authenticated
-  if (!isAuthenticated) {
+  if (!authIsAuthenticated) {
     return (
       <Box sx={{ p: 4, textAlign: 'center' }}>
         <Typography variant="h4" gutterBottom>
@@ -338,70 +282,20 @@ export const ExpensesPage = () => {
     );
   }
 
-  // Show spreadsheet connection prompt
-  if (!spreadsheetConnected) {
+  // Show project selection prompt
+  if (!currentProject) {
     return (
-      <>
-        <Box sx={{ p: 4, textAlign: 'center' }}>
-          <Typography variant="h4" gutterBottom>
-            Connect Your Spreadsheet
-          </Typography>
-          <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-            Paste your Google Sheets URL to connect
-          </Typography>
-          <MuiButton onClick={handleOpenSpreadsheetDialog} variant="contained" size="large">
-            Connect Spreadsheet
-          </MuiButton>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-            Example URL:
-            <br />
-            <code style={{ fontSize: '0.9em' }}>
-              https://docs.google.com/spreadsheets/d/YOUR_SPREADSHEET_ID/edit
-            </code>
-          </Typography>
-        </Box>
-
-        {/* Spreadsheet Connection Dialog */}
-        <Dialog open={isSpreadsheetDialogOpen} onClose={handleCloseSpreadsheetDialog} maxWidth="sm" fullWidth>
-          <DialogTitle>Connect Google Spreadsheet</DialogTitle>
-          <DialogContent>
-            <Box sx={{ pt: 2 }}>
-              <TextField
-                fullWidth
-                label="Google Sheets URL"
-                placeholder="https://docs.google.com/spreadsheets/d/YOUR_SPREADSHEET_ID/edit"
-                value={spreadsheetUrl}
-                onChange={(e) => {
-                  setSpreadsheetUrl(e.target.value);
-                  setSpreadsheetUrlError('');
-                }}
-                error={!!spreadsheetUrlError}
-                helperText={spreadsheetUrlError || 'Paste the full URL from your Google Sheets'}
-                sx={{ mb: 2 }}
-              />
-              <Alert severity="info" sx={{ mt: 2 }}>
-                <Typography variant="body2">
-                  <strong>How to find your URL:</strong>
-                  <br />
-                  1. Open your Google Sheet
-                  <br />
-                  2. Copy the URL from your browser's address bar
-                  <br />
-                  3. Paste it above
-                </Typography>
-              </Alert>
-            </Box>
-          </DialogContent>
-          <DialogActions sx={{ p: 2 }}>
-            <Button onClick={handleCloseSpreadsheetDialog} color="inherit">
-              Cancel
-            </Button>
-            <Button onClick={handleConnectSpreadsheet} variant="contained" color="primary">
-              Connect
-            </Button>
-          </DialogActions>
-        </Dialog>
-      </>
+      <Box sx={{ p: 4, textAlign: 'center' }}>
+        <Typography variant="h4" gutterBottom>
+          No Project Selected
+        </Typography>
+        <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+          Please select or create a project to view expenses
+        </Typography>
+        <MuiButton onClick={() => navigate('/projects')} variant="contained" size="large">
+          Go to Projects
+        </MuiButton>
+      </Box>
     );
   }
 
@@ -422,7 +316,7 @@ export const ExpensesPage = () => {
       </Box>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => dispatch(clearError())}>
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => {}}>
           {error}
         </Alert>
       )}

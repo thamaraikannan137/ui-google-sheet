@@ -1,7 +1,6 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { createSlice } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
-import type { Expense, ExpenseFormData } from '../../types/models';
-import { expenseService } from '../../services/expenseService';
+import type { Expense } from '../../types/models';
 
 interface ExpenseState {
   expenses: Expense[];
@@ -19,77 +18,25 @@ const initialState: ExpenseState = {
   lastUpdated: null,
 };
 
-// Async thunks
-export const fetchExpenses = createAsyncThunk(
-  'expense/fetchExpenses',
-  async (_, { rejectWithValue }) => {
-    try {
-      const expenses = await expenseService.getExpenses();
-      return expenses;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch expenses';
-      return rejectWithValue(errorMessage);
-    }
-  }
-);
-
-export const createExpense = createAsyncThunk(
-  'expense/createExpense',
-  async (expenseData: ExpenseFormData, { rejectWithValue }) => {
-    try {
-      await expenseService.createExpense(expenseData);
-      // Refetch expenses to get updated list with row numbers
-      const expenses = await expenseService.getExpenses();
-      return expenses;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to create expense';
-      return rejectWithValue(errorMessage);
-    }
-  }
-);
-
-export const updateExpense = createAsyncThunk(
-  'expense/updateExpense',
-  async (
-    { row, expenseData }: { row: number; expenseData: ExpenseFormData },
-    { rejectWithValue }
-  ) => {
-    try {
-      await expenseService.updateExpense(row, expenseData);
-      // Refetch expenses to get updated data
-      const expenses = await expenseService.getExpenses();
-      return expenses;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to update expense';
-      return rejectWithValue(errorMessage);
-    }
-  }
-);
-
-export const deleteExpense = createAsyncThunk(
-  'expense/deleteExpense',
-  async (row: number, { rejectWithValue }) => {
-    try {
-      await expenseService.deleteExpense(row);
-      // Refetch expenses to get updated list
-      const expenses = await expenseService.getExpenses();
-      return expenses;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to delete expense';
-      return rejectWithValue(errorMessage);
-    }
-  }
-);
-
 const expenseSlice = createSlice({
   name: 'expense',
   initialState,
   reducers: {
+    setExpenses: (state, action: PayloadAction<Expense[]>) => {
+      state.expenses = action.payload;
+      state.lastUpdated = Date.now();
+    },
     setSelectedExpense: (state, action: PayloadAction<Expense | null>) => {
       state.selectedExpense = action.payload;
     },
     clearSelectedExpense: (state) => {
       state.selectedExpense = null;
+    },
+    setLoading: (state, action: PayloadAction<boolean>) => {
+      state.loading = action.payload;
+    },
+    setError: (state, action: PayloadAction<string | null>) => {
+      state.error = action.payload;
     },
     clearError: (state) => {
       state.error = null;
@@ -101,73 +48,14 @@ const expenseSlice = createSlice({
       state.lastUpdated = null;
     },
   },
-  extraReducers: (builder) => {
-    builder
-      // Fetch expenses
-      .addCase(fetchExpenses.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(fetchExpenses.fulfilled, (state, action) => {
-        state.loading = false;
-        state.expenses = action.payload;
-        state.lastUpdated = Date.now();
-      })
-      .addCase(fetchExpenses.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload as string;
-      })
-      // Create expense
-      .addCase(createExpense.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(createExpense.fulfilled, (state, action) => {
-        state.loading = false;
-        state.expenses = action.payload;
-        state.lastUpdated = Date.now();
-        state.selectedExpense = null; // Clear selection after create
-      })
-      .addCase(createExpense.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload as string;
-      })
-      // Update expense
-      .addCase(updateExpense.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(updateExpense.fulfilled, (state, action) => {
-        state.loading = false;
-        state.expenses = action.payload;
-        state.lastUpdated = Date.now();
-        state.selectedExpense = null; // Clear selection after update
-      })
-      .addCase(updateExpense.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload as string;
-      })
-      // Delete expense
-      .addCase(deleteExpense.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(deleteExpense.fulfilled, (state, action) => {
-        state.loading = false;
-        state.expenses = action.payload;
-        state.lastUpdated = Date.now();
-        state.selectedExpense = null; // Clear selection after delete
-      })
-      .addCase(deleteExpense.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload as string;
-      });
-  },
 });
 
 export const {
+  setExpenses,
   setSelectedExpense,
   clearSelectedExpense,
+  setLoading,
+  setError,
   clearError,
   clearExpenses,
 } = expenseSlice.actions;

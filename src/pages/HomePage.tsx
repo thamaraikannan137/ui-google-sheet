@@ -1,20 +1,57 @@
-import { Button, MuiCard } from '../components/common';
+import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { 
+  Box, 
+  CircularProgress, 
+  Typography,
+} from '@mui/material';
+import { useAuth } from '../hooks/useAuth';
 
 export const HomePage = () => {
+  const navigate = useNavigate();
+  const { isAuthenticated, loading: authLoading, user } = useAuth();
+
+  useEffect(() => {
+    // Only redirect to login if not authenticated
+    if (!authLoading && !isAuthenticated) {
+      navigate('/login', { replace: true });
+    }
+  }, [isAuthenticated, authLoading, navigate]);
+
+  // Show loading while checking authentication
+  if (authLoading) {
+    return (
+      <Box
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
+        minHeight="60vh"
+        flexDirection="column"
+        gap={2}
+      >
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  // Show simple welcome message
   return (
-    <div className="space-y-6">
-      <h1 className="text-4xl font-bold text-gray-900">Welcome to Your App</h1>
-      
-      <MuiCard>
-        <h2 className="text-2xl font-semibold mb-4">Getting Started</h2>
-        <p className="text-gray-600 mb-4">
-          This is a well-structured React boilerplate with TypeScript, Tailwind CSS, and best practices built-in.
-        </p>
-        <Button onClick={() => console.log('Clicked!')}>
-          Get Started
-        </Button>
-      </MuiCard>
-    </div>
+    <Box
+      display="flex"
+      justifyContent="center"
+      alignItems="center"
+      minHeight="60vh"
+      textAlign="center"
+    >
+      <Box>
+        <Typography variant="h3" fontWeight="bold" gutterBottom>
+          Welcome back, {user?.email?.split('@')[0] || 'User'}! 👋
+        </Typography>
+        <Typography variant="h6" color="text.secondary" mt={2}>
+          Your workspace is ready
+        </Typography>
+      </Box>
+    </Box>
   );
 };
 

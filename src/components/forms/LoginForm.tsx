@@ -2,8 +2,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { MuiButton, MuiInput } from '../common';
-import { useAppDispatch, useAppSelector } from '../../store';
-import { login } from '../../store/slices/authSlice';
+import { useAuth } from '../../hooks/useAuth';
 
 // Define validation schema
 const loginSchema = z.object({
@@ -15,8 +14,7 @@ const loginSchema = z.object({
 type LoginFormInputs = z.infer<typeof loginSchema>;
 
 export const LoginForm = () => {
-  const dispatch = useAppDispatch();
-  const { loading, error } = useAppSelector((state) => state.auth);
+  const { loading, error, initiateGoogleAuth } = useAuth();
 
   const {
     register,
@@ -32,13 +30,9 @@ export const LoginForm = () => {
   });
 
   const onSubmit = async (data: LoginFormInputs) => {
-    try {
-      await dispatch(login(data)).unwrap();
-      // Handle successful login (e.g., redirect)
-    } catch (err) {
-      // Error is handled by Redux
-      console.error('Login failed:', err);
-    }
+    // Since this app uses Google OAuth, redirect to Google login
+    // Traditional email/password login is not implemented
+    initiateGoogleAuth();
   };
 
   return (

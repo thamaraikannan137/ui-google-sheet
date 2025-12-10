@@ -21,11 +21,11 @@ const searchData: SearchItem[] = [
   },
   {
     id: '2',
-    name: 'Expenses',
-    url: '/expenses',
-    icon: 'ri-calculator-line',
+    name: 'Projects',
+    url: '/projects',
+    icon: 'ri-folder-line',
     section: 'Pages',
-    shortcut: '⌘ E',
+    shortcut: '⌘ P',
   },
   {
     id: '2a',

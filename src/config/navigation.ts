@@ -14,14 +14,18 @@ export const navigationItems: NavItemType[] = [
     icon: 'Dashboard',
   },
   {
-    title: 'Expenses',
-    path: '/expenses',
-    icon: 'Calculate',
-  },
-  {
     title: 'About',
     path: '/about',
     icon: 'Info',
+  },
+];
+
+// Project-specific navigation items (requires projectId)
+export const getProjectNavigationItems = (projectId: number): NavItemType[] => [
+  {
+    title: 'Expenses',
+    path: `/projects/${projectId}/expenses`,
+    icon: 'Calculate',
   },
 ];
 

@@ -15,7 +15,7 @@ class ApiClient {
       withCredentials: true, // Enable cookies for session-based auth
     });
 
-    // Request interceptor - add sessionId header (backend uses session-based auth)
+    // Request interceptor - add sessionId and projectId headers
     this.axiosInstance.interceptors.request.use(
       (config) => {
         const sessionId = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
@@ -24,6 +24,13 @@ class ApiClient {
           // Using lowercase to match backend's header check
           config.headers['x-session-id'] = sessionId;
         }
+        
+        // Add project ID if available
+        const projectId = localStorage.getItem('currentProjectId');
+        if (projectId) {
+          config.headers['x-project-id'] = projectId;
+        }
+        
         return config;
       },
       (error) => {

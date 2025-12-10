@@ -1,8 +1,8 @@
 import { IconButton, Tooltip } from '@mui/material';
-import { useTheme } from '../../contexts/ThemeContext';
+import { useThemeContext } from '../../contexts/ThemeContext';
 
 export const ThemeToggle = () => {
-  const { mode, toggleTheme } = useTheme();
+  const { mode, toggleTheme } = useThemeContext();
 
   return (
     <Tooltip title={`Switch to ${mode === 'light' ? 'dark' : 'light'} mode`}>

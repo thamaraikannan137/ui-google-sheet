@@ -14,11 +14,12 @@ import {
   ListItemText
 } from '@mui/material';
 import { Logout as LogoutIcon, Person as PersonIcon } from '@mui/icons-material';
-import { useAppSelector, useAppDispatch } from '../../store';
+import { useAppDispatch } from '../../store';
 import { clearExpenses } from '../../store/slices/expenseSlice';
+import { clearProjects } from '../../store/slices/projectSlice';
 import { navigationItems } from '../../config/navigation';
 import { CustomAvatar, ThemeToggle, NavSearch } from '../common';
-import { authService } from '../../services/authService';
+import { useAuth } from '../../hooks/useAuth';
 
 interface HeaderProps {
   onDrawerToggle?: () => void;
@@ -29,13 +30,12 @@ export const Header: React.FC<HeaderProps> = ({ onDrawerToggle }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const { isAuthenticated, logout, user } = useAuth();
   const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
-  const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
-  const user = useAppSelector((state) => state.auth.user);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   
-  // Get user email from localStorage (since we're using session-based auth)
-  const userEmail = localStorage.getItem('user_email') || '';
+  // Get user email from Redux state or localStorage as fallback
+  const userEmail = user?.email || localStorage.getItem('user_email') || '';
   const isMenuOpen = Boolean(anchorEl);
 
   // Get current page title based on route
@@ -58,12 +58,14 @@ export const Header: React.FC<HeaderProps> = ({ onDrawerToggle }) => {
     try {
       // Clear Redux state
       dispatch(clearExpenses());
-      // Call logout service (will clear localStorage and redirect)
-      await authService.logout();
+      dispatch(clearProjects());
+      // Call logout hook (will clear localStorage and redirect)
+      await logout();
     } catch (error) {
       console.error('Logout failed:', error);
       // Still clear state and redirect even if API call fails
       dispatch(clearExpenses());
+      dispatch(clearProjects());
       navigate('/login');
     }
   };
@@ -104,7 +106,7 @@ export const Header: React.FC<HeaderProps> = ({ onDrawerToggle }) => {
         <ThemeToggle />
         
         {/* User Avatar with Menu */}
-        {authService.isAuthenticated() ? (
+        {isAuthenticated ? (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Typography variant="body2" sx={{ display: { xs: 'none', sm: 'block' } }}>
               {userEmail || 'User'}

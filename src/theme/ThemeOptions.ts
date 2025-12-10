@@ -99,21 +99,25 @@ export const darkThemeOptions: ThemeOptions = {
     error: {
       main: '#f44336',
       light: '#e57373',
+      lighter: '#ffcdd2',
       dark: '#d32f2f',
     },
     warning: {
       main: '#ffa726',
       light: '#ffb74d',
+      lighter: '#ffe0b2',
       dark: '#f57c00',
     },
     info: {
       main: '#29b6f6',
       light: '#4fc3f7',
+      lighter: '#b3e5fc',
       dark: '#0288d1',
     },
     success: {
       main: '#66bb6a',
       light: '#81c784',
+      lighter: '#c8e6c9',
       dark: '#388e3c',
     },
     background: {

@@ -32,5 +32,9 @@ export const API_ENDPOINTS = {
     DOWNLOAD: (fileId: string) => `/attachments/${fileId}`,
     DELETE: (fileId: string) => `/attachments/${fileId}`,
   },
+  PROJECTS: {
+    BASE: '/projects',
+    TEMPLATES: '/projects/templates',
+  },
 } as const;
 
