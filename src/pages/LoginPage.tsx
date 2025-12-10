@@ -92,7 +92,7 @@ export const LoginPage = () => {
         {/* Logo */}
         <Box sx={{ position: 'absolute', top: 24, left: 24 }}>
           <Typography variant='h4' color='primary' sx={{ fontWeight: 600 }}>
-            LOGO
+            Expense Tracker
           </Typography>
         </Box>
 
