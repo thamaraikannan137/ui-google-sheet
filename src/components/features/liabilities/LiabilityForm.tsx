@@ -3,15 +3,15 @@ import { useForm } from 'react-hook-form';
 import { MuiButton, MuiInput } from '../../common';
 import { Box, Typography, IconButton, LinearProgress, Alert } from '@mui/material';
 import { AttachFile as AttachFileIcon, Delete as DeleteIcon, CloudUpload as CloudUploadIcon } from '@mui/icons-material';
-import type { Expense, ExpenseFormData } from '../../../types/models';
+import type { Liability, LiabilityFormData } from '../../../types/models';
 
-interface ExpenseFormProps {
-  defaultValues?: Partial<ExpenseFormData> | Expense | Record<string, unknown>;
+interface LiabilityFormProps {
+  defaultValues?: Partial<LiabilityFormData> | Liability | Record<string, unknown>;
   onSubmit: (data: Record<string, unknown>, file?: File) => Promise<void>;
   onCancel?: () => void;
   isLoading?: boolean;
   columns?: string[]; // Dynamic columns from Google Sheet
-  expenseRow?: number; // Row number for file upload (required if editing)
+  liabilityRow?: number; // Row number for file upload (required if editing)
   existingFileId?: string | null; // Existing file ID if editing
 }
 
@@ -84,15 +84,15 @@ const getFieldType = (columnName: string, value: unknown): 'date' | 'number' | '
   return 'text';
 };
 
-export const ExpenseForm = ({ 
+export const LiabilityForm = ({ 
   defaultValues, 
   onSubmit, 
   onCancel, 
   isLoading, 
   columns,
-  expenseRow,
+  liabilityRow,
   existingFileId 
-}: ExpenseFormProps) => {
+}: LiabilityFormProps) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -324,7 +324,7 @@ export const ExpenseForm = ({
           isLoading={isSubmitting || isLoading}
           disabled={isSubmitting || isLoading}
         >
-          {defaultValues ? 'Update Expense' : 'Add Expense'}
+          {defaultValues ? 'Update Liability' : 'Add Liability'}
         </MuiButton>
       </Box>
     </Box>

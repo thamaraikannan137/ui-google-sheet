@@ -52,7 +52,7 @@ export const ProjectSelector = () => {
 
   const handleSelectProject = (project: Project) => {
     selectProject(project);
-    navigate(`/projects/${project.id}/expenses`);
+    navigate(`/projects/${project.id}/liabilities`);
   };
 
   const handleDeleteProject = async (id: number, e: React.MouseEvent) => {
@@ -75,7 +75,7 @@ export const ProjectSelector = () => {
     // Just navigate after closing the dialog
     setTimeout(() => {
       if (currentProject) {
-        navigate(`/projects/${currentProject.id}/expenses`);
+        navigate(`/projects/${currentProject.id}/liabilities`);
       }
     }, 100);
   };

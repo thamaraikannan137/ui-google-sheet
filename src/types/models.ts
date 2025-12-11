@@ -36,8 +36,8 @@ export const OrderStatus = {
 
 export type OrderStatus = typeof OrderStatus[keyof typeof OrderStatus];
 
-// Expense model for Google Sheets integration
-export interface Expense {
+// Liability model for Google Sheets integration
+export interface Liability {
   row?: number; // Row number in Google Sheet (for updates/deletes)
   date?: string;
   description?: string;
@@ -48,8 +48,8 @@ export interface Expense {
   [key: string]: any;
 }
 
-// Expense form data for create/update operations
-export interface ExpenseFormData {
+// Liability form data for create/update operations
+export interface LiabilityFormData {
   date: string;
   description: string;
   amount: number;

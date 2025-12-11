@@ -15,7 +15,7 @@ import {
 } from '@mui/material';
 import { Logout as LogoutIcon, Person as PersonIcon } from '@mui/icons-material';
 import { useAppDispatch } from '../../store';
-import { clearExpenses } from '../../store/slices/expenseSlice';
+import { clearLiabilities } from '../../store/slices/liabilitySlice';
 import { clearProjects } from '../../store/slices/projectSlice';
 import { navigationItems } from '../../config/navigation';
 import { CustomAvatar, ThemeToggle, NavSearch } from '../common';
@@ -57,14 +57,14 @@ export const Header: React.FC<HeaderProps> = ({ onDrawerToggle }) => {
     handleMenuClose();
     try {
       // Clear Redux state
-      dispatch(clearExpenses());
+      dispatch(clearLiabilities());
       dispatch(clearProjects());
       // Call logout hook (will clear localStorage and redirect)
       await logout();
     } catch (error) {
       console.error('Logout failed:', error);
       // Still clear state and redirect even if API call fails
-      dispatch(clearExpenses());
+      dispatch(clearLiabilities());
       dispatch(clearProjects());
       navigate('/login');
     }

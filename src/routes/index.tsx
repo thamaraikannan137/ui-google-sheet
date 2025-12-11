@@ -4,7 +4,7 @@ import { HomePage } from "../pages/HomePage";
 import { AboutPage } from "../pages/AboutPage";
 import { LoginPage } from "../pages/LoginPage";
 import { RegisterPage } from "../pages/RegisterPage";
-import { ExpensesPage } from "../pages/ExpensesPage";
+import { LiabilitiesPage } from "../pages/LiabilitiesPage";
 import { ProjectsPage } from "../pages/ProjectsPage";
 import { GoogleAuthCallbackPage } from "../pages/GoogleAuthCallbackPage";
 
@@ -28,8 +28,8 @@ const router = createBrowserRouter([
         element: <ProjectsPage />,
       },
       {
-        path: "projects/:projectId/expenses",
-        element: <ExpensesPage />,
+        path: "projects/:projectId/liabilities",
+        element: <LiabilitiesPage />,
       },
     ],
   },

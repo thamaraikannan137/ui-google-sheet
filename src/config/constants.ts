@@ -18,7 +18,7 @@ export const STORAGE_KEYS = {
 
 // API Endpoints
 export const API_ENDPOINTS = {
-  EXPENSES: '/expenses',
+  LIABILITIES: '/liabilities',
   AUTH: {
     GOOGLE: '/auth/google',
     GOOGLE_CALLBACK: '/auth/google/callback',
@@ -27,8 +27,8 @@ export const API_ENDPOINTS = {
     LOGOUT: '/auth/logout',
   },
   ATTACHMENTS: {
-    UPLOAD: (row: number) => `/expenses/${row}/attachments`,
-    GET: (row: number) => `/expenses/${row}/attachments`,
+    UPLOAD: (row: number) => `/liabilities/${row}/attachments`,
+    GET: (row: number) => `/liabilities/${row}/attachments`,
     DOWNLOAD: (fileId: string) => `/attachments/${fileId}`,
     DELETE: (fileId: string) => `/attachments/${fileId}`,
   },

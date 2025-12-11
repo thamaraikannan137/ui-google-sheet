@@ -155,7 +155,7 @@ export default function CreateProjectDialog({ open, onClose, onSuccess }: Create
             label="Project Name"
             value={projectName}
             onChange={(e) => setProjectName(e.target.value)}
-            placeholder="e.g., Expense Tracker 2024"
+            placeholder="e.g., Liability Tracker 2024"
             required
             disabled={creating}
             autoFocus

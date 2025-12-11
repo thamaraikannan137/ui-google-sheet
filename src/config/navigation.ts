@@ -23,8 +23,8 @@ export const navigationItems: NavItemType[] = [
 // Project-specific navigation items (requires projectId)
 export const getProjectNavigationItems = (projectId: number): NavItemType[] => [
   {
-    title: 'Expenses',
-    path: `/projects/${projectId}/expenses`,
+    title: 'Liabilities',
+    path: `/projects/${projectId}/liabilities`,
     icon: 'Calculate',
   },
 ];

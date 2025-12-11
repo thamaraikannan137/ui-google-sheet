@@ -1,16 +1,16 @@
 import { Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton, CircularProgress, Typography, Chip } from '@mui/material';
 import { Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
-import type { Expense } from '../../../types/models';
+import type { Liability } from '../../../types/models';
 
-interface ExpenseListProps {
-  expenses: Expense[];
+interface LiabilityListProps {
+  liabilities: Liability[];
   loading?: boolean;
-  onEdit?: (expense: Expense) => void;
+  onEdit?: (liability: Liability) => void;
   onDelete?: (row: number) => void;
-  onView?: (expense: Expense) => void;
+  onView?: (liability: Liability) => void;
 }
 
-export const ExpenseList = ({ expenses, loading, onEdit, onDelete, onView }: ExpenseListProps) => {
+export const LiabilityList = ({ liabilities, loading, onEdit, onDelete, onView }: LiabilityListProps) => {
   const formatDate = (dateString?: string) => {
     if (!dateString) return '-';
     try {
@@ -43,24 +43,24 @@ export const ExpenseList = ({ expenses, loading, onEdit, onDelete, onView }: Exp
     );
   }
 
-  if (expenses.length === 0) {
+  if (liabilities.length === 0) {
     return (
       <Box sx={{ textAlign: 'center', py: 4 }}>
         <Typography variant="h6" color="text.secondary">
-          No expenses found
+          No liabilities found
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          Add your first expense to get started
+          Add your first liability to get started
         </Typography>
       </Box>
     );
   }
 
-  // Get all unique column names from all expenses (dynamic columns from Google Sheet)
+  // Get all unique column names from all liabilities (dynamic columns from Google Sheet)
   const getAllColumns = () => {
     const columnSet = new Set<string>();
-    expenses.forEach((expense) => {
-      Object.keys(expense).forEach((key) => {
+    liabilities.forEach((liability) => {
+      Object.keys(liability).forEach((key) => {
         if (key !== 'row') {
           columnSet.add(key);
         }
@@ -87,8 +87,8 @@ export const ExpenseList = ({ expenses, loading, onEdit, onDelete, onView }: Exp
   };
 
   // Helper to get cell value with formatting
-  const getCellValue = (expense: Expense, column: string) => {
-    const value = expense[column];
+  const getCellValue = (liability: Liability, column: string) => {
+    const value = liability[column];
     if (value === '' || value === null || value === undefined) return '-';
     
     // Format dates
@@ -132,11 +132,11 @@ export const ExpenseList = ({ expenses, loading, onEdit, onDelete, onView }: Exp
           </TableRow>
         </TableHead>
         <TableBody>
-          {expenses.map((expense, index) => (
+          {liabilities.map((liability, index) => (
             <TableRow 
-              key={expense.row || index} 
+              key={liability.row || index} 
               hover
-              onClick={() => onView && onView(expense)}
+              onClick={() => onView && onView(liability)}
               sx={{ 
                 cursor: onView ? 'pointer' : 'default',
                 '&:hover': {
@@ -145,8 +145,8 @@ export const ExpenseList = ({ expenses, loading, onEdit, onDelete, onView }: Exp
               }}
             >
               {columns.map((column) => {
-                const value = expense[column];
-                const cellValue = getCellValue(expense, column);
+                const value = liability[column];
+                const cellValue = getCellValue(liability, column);
                 const isAmount = isAmountValue(value);
                 
                 return (
@@ -174,22 +174,22 @@ export const ExpenseList = ({ expenses, loading, onEdit, onDelete, onView }: Exp
                         color="primary"
                         onClick={(e) => {
                           e.stopPropagation();
-                          onEdit(expense);
+                          onEdit(liability);
                         }}
-                        aria-label="edit expense"
+                        aria-label="edit liability"
                       >
                         <EditIcon fontSize="small" />
                       </IconButton>
                     )}
-                    {onDelete && expense.row && (
+                    {onDelete && liability.row && (
                       <IconButton
                         size="small"
                         color="error"
                         onClick={(e) => {
                           e.stopPropagation();
-                          onDelete(expense.row!);
+                          onDelete(liability.row!);
                         }}
-                        aria-label="delete expense"
+                        aria-label="delete liability"
                       >
                         <DeleteIcon fontSize="small" />
                       </IconButton>

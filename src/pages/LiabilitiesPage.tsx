@@ -1,21 +1,23 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Box, Typography, Button, Dialog, DialogTitle, DialogContent, DialogActions, Alert, Snackbar, Divider, Paper, IconButton, TextField, CircularProgress } from '@mui/material';
+import { Box, Typography, Button, Dialog, DialogTitle, DialogContent, DialogActions, Alert, Divider, Paper, IconButton, TextField, CircularProgress } from '@mui/material';
 import { Add as AddIcon, Close as CloseIcon, AttachFile as AttachFileIcon, Download as DownloadIcon, Image as ImageIcon } from '@mui/icons-material';
-import { useExpenses } from '../hooks/useExpenses';
+import { useLiabilities } from '../hooks/useLiabilities';
 import { useAuth } from '../hooks/useAuth';
 import { useProjects } from '../hooks/useProjects';
-import { ExpenseForm, ExpenseList } from '../components/features/expenses';
-import { expenseService } from '../services/expenseService';
-import type { Expense, ExpenseFormData } from '../types/models';
+import { useToast } from '../contexts/ToastContext';
+import { LiabilityForm, LiabilityList } from '../components/features/liabilities';
+import { liabilityService } from '../services/liabilityService';
+import type { Liability, LiabilityFormData } from '../types/models';
 import { MuiButton } from '../components/common';
 
-export const ExpensesPage = () => {
+export const LiabilitiesPage = () => {
   const navigate = useNavigate();
   const { projectId } = useParams<{ projectId: string }>();
-  const { expenses, loading, error, selectedExpense, fetchExpenses, createExpense, updateExpense, deleteExpense, setSelectedExpense } = useExpenses();
+  const { liabilities, loading, error, selectedLiability, fetchLiabilities, createLiability, updateLiability, deleteLiability, setSelectedLiability } = useLiabilities();
   const { checkAuthStatus, isAuthenticated: authIsAuthenticated, initiateGoogleAuth } = useAuth();
   const { currentProject, projects, fetchProjects, selectProject } = useProjects();
+  const { showSuccess, showError } = useToast();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -24,13 +26,8 @@ export const ExpensesPage = () => {
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [previewFileName, setPreviewFileName] = useState<string>('');
   const [previewFileId, setPreviewFileId] = useState<string>('');
-  const [selectedExpenseForView, setSelectedExpenseForView] = useState<Expense | null>(null);
-  const [expenseToDelete, setExpenseToDelete] = useState<number | null>(null);
-  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
-    open: false,
-    message: '',
-    severity: 'success',
-  });
+  const [selectedLiabilityForView, setSelectedLiabilityForView] = useState<Liability | null>(null);
+  const [liabilityToDelete, setLiabilityToDelete] = useState<number | null>(null);
 
   // Check auth and fetch projects on mount
   useEffect(() => {
@@ -75,21 +72,14 @@ export const ExpensesPage = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, authIsAuthenticated, projects]);
 
-  // Fetch expenses when project is set
+  // Fetch liabilities when project is set
   useEffect(() => {
     if (currentProject && projectId && currentProject.id === parseInt(projectId)) {
-      fetchExpenses().catch(console.error);
+      fetchLiabilities().catch(console.error);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentProject, projectId]);
 
-  // Debug: Log expenses state
-  useEffect(() => {
-    console.log('ExpensesPage - expenses state:', expenses);
-    console.log('ExpensesPage - expenses length:', expenses?.length);
-    console.log('ExpensesPage - loading:', loading);
-    console.log('ExpensesPage - error:', error);
-  }, [expenses, loading, error]);
 
   const handleGoogleLogin = () => {
     initiateGoogleAuth();
@@ -97,25 +87,25 @@ export const ExpensesPage = () => {
 
   const handleOpenForm = () => {
     setIsEditMode(false);
-    setSelectedExpense(null);
+    setSelectedLiability(null);
     setIsFormOpen(true);
   };
 
   const handleCloseForm = () => {
     setIsFormOpen(false);
     setIsEditMode(false);
-    setSelectedExpense(null);
+    setSelectedLiability(null);
   };
 
-  // Get all unique column names from expenses
+  // Get all unique column names from liabilities
   const getColumns = (): string[] => {
-    if (expenses.length === 0) {
-      // Default columns if no expenses
+    if (liabilities.length === 0) {
+      // Default columns if no liabilities
       return ['date', 'description', 'amount', 'category', 'notes'];
     }
     const columnSet = new Set<string>();
-    expenses.forEach((expense) => {
-      Object.keys(expense).forEach((key) => {
+    liabilities.forEach((liability) => {
+      Object.keys(liability).forEach((key) => {
         if (key !== 'row') {
           columnSet.add(key);
         }
@@ -124,117 +114,127 @@ export const ExpensesPage = () => {
     return Array.from(columnSet);
   };
 
-  const handleEdit = (expense: Expense) => {
-    setSelectedExpense(expense);
+  const handleEdit = (liability: Liability) => {
+    setSelectedLiability(liability);
     setIsEditMode(true);
     setIsFormOpen(true);
   };
 
   const handleSubmit = async (data: Record<string, unknown>, file?: File) => {
     try {
-      // Backend expects object with column names as keys - convert to ExpenseFormData format
-      const expenseData = data as unknown as ExpenseFormData;
+      // Backend expects object with column names as keys - convert to LiabilityFormData format
+      const liabilityData = data as unknown as LiabilityFormData;
       
-      if (isEditMode && selectedExpense?.row) {
-        // Update expense first
-        await updateExpense(selectedExpense.row, expenseData);
+      if (isEditMode && selectedLiability?.row) {
+        // Update liability first
+        await updateLiability(selectedLiability.row, liabilityData);
         
         // Upload file if provided
         if (file) {
           try {
-            await expenseService.uploadAttachment(selectedExpense.row, file);
-            setSnackbar({ open: true, message: 'Expense and file updated successfully', severity: 'success' });
+            await liabilityService.uploadAttachment(selectedLiability.row, file);
+            showSuccess('Liability and file updated successfully');
           } catch (fileError) {
             console.error('File upload error:', fileError);
-            setSnackbar({ open: true, message: 'Expense updated but file upload failed', severity: 'error' });
+            showError('Liability updated but file upload failed');
           }
         } else {
-          setSnackbar({ open: true, message: 'Expense updated successfully', severity: 'success' });
+          showSuccess('Liability updated successfully');
         }
       } else {
-        // Create expense first
-        await createExpense(expenseData);
-        
-        // Refresh expenses to get updated list with row numbers
-        await fetchExpenses();
-        const updatedExpenses = expenses;
-        
-        // Get the new row number (last expense row)
-        const newRow = updatedExpenses.length > 0 && updatedExpenses[updatedExpenses.length - 1].row 
-          ? updatedExpenses[updatedExpenses.length - 1].row! 
-          : updatedExpenses.length + 1; // Fallback: row = array length + 1 (since row 1 is header)
+        // Create liability first
+        await createLiability(liabilityData);
         
         // Upload file if provided
-        if (file && newRow) {
+        if (file) {
           try {
-            await expenseService.uploadAttachment(newRow, file);
-            setSnackbar({ open: true, message: 'Expense and file added successfully', severity: 'success' });
-            // Refresh again to get file ID in expense data
-            await fetchExpenses();
+            // Refresh liabilities to get updated list with row numbers
+            await fetchLiabilities();
+            
+            // Get the newly created liability from the API directly
+            const updatedLiabilities = await liabilityService.getLiabilities();
+            
+            // Get the new row number (last liability row)
+            const newRow = updatedLiabilities.length > 0 && updatedLiabilities[updatedLiabilities.length - 1].row 
+              ? updatedLiabilities[updatedLiabilities.length - 1].row! 
+              : updatedLiabilities.length + 1; // Fallback: row = array length + 1 (since row 1 is header)
+            
+            // Upload the file
+            await liabilityService.uploadAttachment(newRow, file);
+            showSuccess('Liability and file added successfully');
+            // Refresh again to get file ID in liability data
+            await fetchLiabilities();
           } catch (fileError) {
             console.error('File upload error:', fileError);
-            setSnackbar({ open: true, message: 'Expense added but file upload failed', severity: 'error' });
+            showError('Liability added but file upload failed');
           }
         } else {
-          setSnackbar({ open: true, message: 'Expense added successfully', severity: 'success' });
+          showSuccess('Liability added successfully');
         }
       }
       
-      // Refresh expenses list
-      await fetchExpenses();
+      // Refresh liabilities list
+      await fetchLiabilities();
       handleCloseForm();
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to save expense';
-      setSnackbar({ open: true, message: errorMessage, severity: 'error' });
+      const errorMessage = err instanceof Error ? err.message : 'Failed to save liability';
+      showError(errorMessage);
     }
   };
 
   const handleDeleteClick = (row: number) => {
-    setExpenseToDelete(row);
+    setLiabilityToDelete(row);
     setIsDeleteDialogOpen(true);
   };
 
   const handleDeleteConfirm = async () => {
-    if (expenseToDelete) {
+    if (liabilityToDelete) {
       try {
-        await deleteExpense(expenseToDelete);
-        setSnackbar({ open: true, message: 'Expense deleted successfully', severity: 'success' });
+        await deleteLiability(liabilityToDelete);
+        showSuccess('Liability deleted successfully');
         setIsDeleteDialogOpen(false);
-        setExpenseToDelete(null);
+        setLiabilityToDelete(null);
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to delete expense';
-        setSnackbar({ open: true, message: errorMessage, severity: 'error' });
+        const errorMessage = err instanceof Error ? err.message : 'Failed to delete liability';
+        showError(errorMessage);
         setIsDeleteDialogOpen(false);
-        setExpenseToDelete(null);
+        setLiabilityToDelete(null);
       }
     }
   };
 
   const handleDeleteCancel = () => {
     setIsDeleteDialogOpen(false);
-    setExpenseToDelete(null);
+    setLiabilityToDelete(null);
   };
 
-  const handleViewExpense = (expense: Expense) => {
-    setSelectedExpenseForView(expense);
+  const handleViewLiability = (liability: Liability) => {
+    setSelectedLiabilityForView(liability);
     setIsDetailDialogOpen(true);
   };
 
   const handleCloseDetailDialog = () => {
     setIsDetailDialogOpen(false);
-    setSelectedExpenseForView(null);
+    setSelectedLiabilityForView(null);
   };
 
   const handleOpenImagePreview = async (fileId: string, fileName: string) => {
     try {
-      const imageUrl = expenseService.getAttachmentUrl(fileId);
+      const imageUrl = liabilityService.getAttachmentUrl(fileId);
+      console.log('Opening image preview:', {
+        fileId,
+        fileName,
+        imageUrl,
+        projectId: localStorage.getItem('currentProjectId'),
+        sessionId: localStorage.getItem('auth_token')?.substring(0, 10) + '...'
+      });
       setPreviewImageUrl(imageUrl);
       setPreviewFileName(fileName);
       setPreviewFileId(fileId);
       setIsImagePreviewOpen(true);
     } catch (error) {
       console.error('Error opening image preview:', error);
-      setSnackbar({ open: true, message: 'Failed to load image', severity: 'error' });
+      showError('Failed to load image');
     }
   };
 
@@ -247,7 +247,7 @@ export const ExpensesPage = () => {
 
   const handleDownloadFile = async (fileId: string, fileName: string) => {
     try {
-      const downloadUrl = expenseService.getAttachmentUrl(fileId);
+      const downloadUrl = liabilityService.getAttachmentUrl(fileId);
       const link = document.createElement('a');
       link.href = downloadUrl;
       link.download = fileName;
@@ -257,12 +257,8 @@ export const ExpensesPage = () => {
       document.body.removeChild(link);
     } catch (error) {
       console.error('Error downloading file:', error);
-      setSnackbar({ open: true, message: 'Failed to download file', severity: 'error' });
+      showError('Failed to download file');
     }
-  };
-
-  const handleCloseSnackbar = () => {
-    setSnackbar({ ...snackbar, open: false });
   };
 
   // Show login prompt if not authenticated
@@ -273,7 +269,7 @@ export const ExpensesPage = () => {
           Connect Your Google Account
         </Typography>
         <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-          Please sign in with Google to access your expenses
+          Please sign in with Google to access your liabilities
         </Typography>
         <MuiButton onClick={handleGoogleLogin} variant="contained" size="large">
           Continue with Google
@@ -290,7 +286,7 @@ export const ExpensesPage = () => {
           No Project Selected
         </Typography>
         <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-          Please select or create a project to view expenses
+          Please select or create a project to view liabilities
         </Typography>
         <MuiButton onClick={() => navigate('/projects')} variant="contained" size="large">
           Go to Projects
@@ -303,7 +299,7 @@ export const ExpensesPage = () => {
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" component="h1">
-          Expenses {expenses.length > 0 && `(${expenses.length})`}
+          Liabilities {liabilities.length > 0 && `(${liabilities.length})`}
         </Typography>
         <Button
           variant="contained"
@@ -311,7 +307,7 @@ export const ExpensesPage = () => {
           onClick={handleOpenForm}
           disabled={loading}
         >
-          Add Expense
+          Add Liability
         </Button>
       </Box>
 
@@ -321,44 +317,34 @@ export const ExpensesPage = () => {
         </Alert>
       )}
 
-      {/* Debug info - remove in production */}
-      {import.meta.env.DEV && (
-        <Alert severity="info" sx={{ mb: 2 }}>
-          <Typography variant="body2">
-            Debug: Expenses count: {expenses.length} | Loading: {loading ? 'Yes' : 'No'} | 
-            First expense: {expenses[0] ? JSON.stringify(expenses[0]) : 'None'}
-          </Typography>
-        </Alert>
-      )}
-
-      <ExpenseList
-        expenses={expenses}
+      <LiabilityList
+        liabilities={liabilities}
         loading={loading}
         onEdit={handleEdit}
         onDelete={handleDeleteClick}
-        onView={handleViewExpense}
+        onView={handleViewLiability}
       />
 
       <Dialog open={isFormOpen} onClose={handleCloseForm} maxWidth="sm" fullWidth>
-        <DialogTitle>{isEditMode ? 'Edit Expense' : 'Add New Expense'}</DialogTitle>
+        <DialogTitle>{isEditMode ? 'Edit Liability' : 'Add New Liability'}</DialogTitle>
         <DialogContent>
-          <ExpenseForm
-            key={isEditMode && selectedExpense?.row ? `edit-${selectedExpense.row}` : 'add-new'}
-            defaultValues={isEditMode && selectedExpense ? selectedExpense : undefined}
+          <LiabilityForm
+            key={isEditMode && selectedLiability?.row ? `edit-${selectedLiability.row}` : 'add-new'}
+            defaultValues={isEditMode && selectedLiability ? selectedLiability : undefined}
             columns={getColumns()}
             onSubmit={handleSubmit}
             onCancel={handleCloseForm}
             isLoading={loading}
-            expenseRow={isEditMode && selectedExpense?.row ? selectedExpense.row : undefined}
-            existingFileId={isEditMode && selectedExpense ? 
-              (selectedExpense['Attachment Path'] as string) || 
-              (selectedExpense['attachment'] as string) || 
+            liabilityRow={isEditMode && selectedLiability?.row ? selectedLiability.row : undefined}
+            existingFileId={isEditMode && selectedLiability ? 
+              (selectedLiability['Attachment Path'] as string) || 
+              (selectedLiability['attachment'] as string) || 
               null : null}
           />
         </DialogContent>
       </Dialog>
 
-      {/* Expense Detail Dialog */}
+      {/* Liability Detail Dialog */}
       <Dialog 
         open={isDetailDialogOpen} 
         onClose={handleCloseDetailDialog}
@@ -367,7 +353,7 @@ export const ExpensesPage = () => {
       >
         <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h5" component="span">
-            Expense Details
+            Liability Details
           </Typography>
           <IconButton
             onClick={handleCloseDetailDialog}
@@ -379,15 +365,15 @@ export const ExpensesPage = () => {
         </DialogTitle>
         <Divider />
         <DialogContent sx={{ mt: 2 }}>
-          {selectedExpenseForView && (
+          {selectedLiabilityForView && (
             <>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-                {Object.keys(selectedExpenseForView)
+                {Object.keys(selectedLiabilityForView)
                   .filter(key => key !== 'row' && 
                     !key.toLowerCase().includes('attachment') && 
                     !key.toLowerCase().includes('file'))
                   .map((key) => {
-                    const value = selectedExpenseForView[key];
+                    const value = selectedLiabilityForView[key];
                     const isDate = typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value);
                     const isAmount = value !== '' && value !== null && value !== undefined && 
                       /^[\d,]+\.?\d*$/.test(String(value).replace(/[$,]/g, ''));
@@ -445,10 +431,10 @@ export const ExpensesPage = () => {
               
               {/* Attachment Section */}
               {(() => {
-                const attachmentKey = Object.keys(selectedExpenseForView).find(key => 
+                const attachmentKey = Object.keys(selectedLiabilityForView).find(key => 
                   key.toLowerCase().includes('attachment') || key.toLowerCase().includes('file')
                 );
-                const fileId = attachmentKey ? (selectedExpenseForView[attachmentKey] as string) : null;
+                const fileId = attachmentKey ? (selectedLiabilityForView[attachmentKey] as string) : null;
                 
                 if (fileId && fileId.trim() !== '') {
                   const fileName = 'Attachment';
@@ -495,11 +481,11 @@ export const ExpensesPage = () => {
           <Button onClick={handleCloseDetailDialog} variant="outlined">
             Close
           </Button>
-          {selectedExpenseForView && (
+          {selectedLiabilityForView && (
             <Button 
               onClick={() => {
                 handleCloseDetailDialog();
-                handleEdit(selectedExpenseForView);
+                handleEdit(selectedLiabilityForView);
               }} 
               variant="contained"
               color="primary"
@@ -555,14 +541,26 @@ export const ExpensesPage = () => {
                   // Open in new tab for full size
                   window.open(previewImageUrl, '_blank');
                 }}
+                onLoad={() => {
+                  console.log('Image loaded successfully:', previewImageUrl);
+                }}
                 onError={(e) => {
                   // If image fails to load, show error message
+                  console.error('Image failed to load:', {
+                    url: previewImageUrl,
+                    fileId: previewFileId,
+                    fileName: previewFileName
+                  });
                   const target = e.target as HTMLImageElement;
                   target.style.display = 'none';
                   const errorBox = document.createElement('div');
-                  errorBox.textContent = 'Failed to load image. Click Download to view.';
-                  errorBox.style.padding = '20px';
-                  errorBox.style.textAlign = 'center';
+                  errorBox.innerHTML = `
+                    <div style="padding: 20px; text-align: center;">
+                      <p style="color: #d32f2f; font-weight: 600; margin-bottom: 10px;">Failed to load image</p>
+                      <p style="color: #666; font-size: 14px;">Please check the browser console for details</p>
+                      <p style="color: #666; font-size: 12px; margin-top: 10px;">URL: ${previewImageUrl}</p>
+                    </div>
+                  `;
                   target.parentElement?.appendChild(errorBox);
                 }}
               />
@@ -583,10 +581,10 @@ export const ExpensesPage = () => {
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={isDeleteDialogOpen} onClose={handleDeleteCancel}>
-        <DialogTitle>Delete Expense</DialogTitle>
+        <DialogTitle>Delete Liability</DialogTitle>
         <DialogContent>
           <Typography>
-            Are you sure you want to delete this expense? This action cannot be undone.
+            Are you sure you want to delete this liability? This action cannot be undone.
           </Typography>
         </DialogContent>
         <DialogActions>
@@ -598,17 +596,6 @@ export const ExpensesPage = () => {
           </Button>
         </DialogActions>
       </Dialog>
-
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      >
-        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
     </Box>
   );
 };

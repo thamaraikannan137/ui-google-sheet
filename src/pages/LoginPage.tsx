@@ -92,7 +92,7 @@ export const LoginPage = () => {
         {/* Logo */}
         <Box sx={{ position: 'absolute', top: 24, left: 24 }}>
           <Typography variant='h4' color='primary' sx={{ fontWeight: 600 }}>
-            Expense Tracker
+            Liability Tracker
           </Typography>
         </Box>
 
@@ -103,7 +103,7 @@ export const LoginPage = () => {
               Welcome! 👋🏻
             </Typography>
             <Typography variant='body1' color='text.secondary'>
-              Sign in with Google to manage your expenses
+              Sign in with Google to manage your liabilities
             </Typography>
           </Box>
 
@@ -131,7 +131,7 @@ export const LoginPage = () => {
 
             <Box sx={{ mt: 2 }}>
               <Typography variant='body2' color='text.secondary' align='center'>
-                By continuing, you agree to connect your Google account to access your expense sheets.
+                By continuing, you agree to connect your Google account to access your liability sheets.
               </Typography>
             </Box>
           </Box>

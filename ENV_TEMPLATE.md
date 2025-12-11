@@ -26,5 +26,5 @@ VITE_API_BASE_URL=http://localhost:3000
 ## Verification
 
 After restarting, open your browser's Network tab and check that API requests are going to:
-- ✅ `http://localhost:3000/expenses`
-- ❌ NOT `http://localhost:5173/expenses`
+- ✅ `http://localhost:3000/liabilities`
+- ❌ NOT `http://localhost:5173/liabilities`
