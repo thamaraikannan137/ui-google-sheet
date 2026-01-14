@@ -10,3 +10,4 @@ declare module '@mui/material/styles' {
     lighter?: string;
   }
 }
+
